@@ -3,10 +3,14 @@ package prepare_db
 import "base:runtime"
 import "core:fmt"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "core:time"
 
 write_string_array_to_file :: proc(file_out_path: string, array: []string, array_name: string) {
+	if os.exists(file_out_path) {
+		os.remove(file_out_path)
+	}
 	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
 	if err == os.ERROR_NONE {
 		fmt.println("Created file", file_out_path)
@@ -22,7 +26,7 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 	for elem in array {
 		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
 	}
-	os.write_string(file_out_handle, "}")
+	os.write_string(file_out_handle, "}\n")
 	toc := time.tick_since(tic)
 
 	os.close(file_out_handle)
@@ -30,6 +34,11 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 }
 
 main :: proc() {
+	nstr := -1
+	if len(os.args) == 2 {
+		nstr, _ = strconv.parse_int(os.args[1])
+	}
+
 	path_dict_txt := "dict-de-en.txt"
 
 	file_read, file_read_ok := os.read_entire_file(path_dict_txt, context.allocator)
@@ -48,10 +57,15 @@ main :: proc() {
 	it := string(file_read)
 	k := 0
 	for str in strings.split_lines_after_iterator(&it) {
-		k += 1
 		if str[0] == '#' {
 			continue
 		}
+
+		if (nstr != -1) & (k > nstr) {
+			break
+		}
+		k += 1
+
 		split := strings.split(str, "\t", context.temp_allocator)
 		if len(split) < 2 {continue}
 		if (len(split) == 2) | (len(split) == 3) | (len(split) == 4) {
@@ -89,6 +103,7 @@ main :: proc() {
 	assert(len(lang1) == len(lang2_lower))
 	assert(len(lang1) == len(category))
 	assert(len(lang1) == len(area))
+	fmt.println("Array lengths:", len(lang1))
 
 	arrays: [][]string = {lang1[:], lang2[:], lang1_lower[:], lang2_lower[:], category[:], area[:]}
 	array_names: []string = {"lang1", "lang2", "lang1_lower", "lang2_lower", "category", "area"}
