@@ -1,0 +1,4 @@
+*.txt
+_generated*
+dict-cli
+downloads
