@@ -1,4 +1,4 @@
 *.txt
-_generated*
+generated*
 dict-cli
 downloads
