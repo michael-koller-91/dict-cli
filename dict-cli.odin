@@ -1,3 +1,4 @@
+// TODO: add a command line flag to print all hits
 package main
 
 import "base:runtime"
@@ -6,10 +7,20 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:time"
+// import sm "smith-waterman"
 
 VERSION :: "0.0.1"
 
 write_examples :: proc() {
+}
+
+exact_word_match :: proc(haystack: ^string, needle: string) -> bool {
+	count := 0
+	for s in strings.split_iterator(haystack, " ") {
+		count += 1
+		if needle == s {return true}
+	}
+	return false
 }
 
 main :: proc() {
@@ -61,8 +72,8 @@ main :: proc() {
 	tic := time.tick_now()
 	hits: [dynamic]int
 	max_len := 0
-	for elem, idx in lang1_lower {
-		if strings.contains(elem, phrase) {
+	for &elem, idx in lang1_lower {
+		if exact_word_match(&elem, phrase) {
 			append(&hits, idx)
 			if len(elem) > max_len {
 				max_len = len(elem)
@@ -72,7 +83,14 @@ main :: proc() {
 	toc := time.tick_since(tic)
 	fmt.printfln("done. %v hits in %v seconds.", len(hits), toc)
 
-	for idx in hits {
-		fmt.printfln("> %v | %v", strings.left_justify(lang1[idx], max_len, " "), lang2[idx])
+	width := 50
+	for idx, hitcount in hits {
+		s := strings.left_justify(lang1[idx], max_len, " ")
+		fmt.printfln("> %v | %v | %v", category[idx], s, lang2[idx])
+
+		if hitcount > 20 {
+			fmt.println("Only the first 20 results were printed.")
+			break
+		}
 	}
 }
