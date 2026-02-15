@@ -1,4 +1,6 @@
 // TODO: add a command line flag to print all hits
+// TODO: normalize database: replace all white spaces with " " so that exact_word_match works
+// TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
 package main
 
 import "base:runtime"
@@ -6,8 +8,9 @@ import "core:flags"
 import "core:fmt"
 import "core:os"
 import "core:strings"
+// import "core:text/regex"
 import "core:time"
-// import sm "smith-waterman"
+import sm "smith-waterman"
 
 VERSION :: "0.0.1"
 
@@ -22,6 +25,7 @@ exact_word_match :: proc(haystack: ^string, needle: string) -> bool {
 	}
 	return false
 }
+
 
 main :: proc() {
 	Args :: struct {
@@ -68,12 +72,27 @@ main :: proc() {
 
 	phrase := strings.to_lower(args.phrase)
 
+	// pattern := fmt.aprintf("\\b%v\\b", phrase)
+	// fmt.println("pattern =", pattern)
+	// fpat, fpat_err := regex.create(pattern, {.No_Capture})
+	// if fpat_err != nil {
+	// 	fmt.eprintfln(
+	// 		"ERROR: Failed to create regular expression from filename pattern \"%v\": %v. Maybe escaping is missing?",
+	// 		phrase,
+	// 		fpat_err,
+	// 	)
+	// 	os.exit(1)
+	// }
+
 	fmt.print("Searching...")
 	tic := time.tick_now()
 	hits: [dynamic]int
 	max_len := 0
 	for &elem, idx in lang1_lower {
-		if exact_word_match(&elem, phrase) {
+		//if exact_word_match(&elem, phrase) {
+		//_, fmatch := regex.match(fpat, elem)
+		//if fmatch {
+		if sm.sm_word(elem, phrase) == 1 {
 			append(&hits, idx)
 			if len(elem) > max_len {
 				max_len = len(elem)
