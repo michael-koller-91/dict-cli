@@ -154,6 +154,52 @@ wordmatch :: proc(phrase: string, elem: string) -> bool {
 	return false
 }
 
+sm_word :: proc(a: string, b: string) -> int {
+	sa := strings.split(a, " ")
+	sb := strings.split(b, " ")
+	if len(sa) > 2 {return 0}
+	n := len(sa) + 1
+	m := len(sb) + 1
+	if (n == 1) | (m == 1) {return 0}
+	h: [2][]int
+	h[0] = make([]int, m)
+	h[1] = make([]int, m)
+
+	// init
+	for j in 0 ..< m {
+		h[0][j] = 0
+		h[1][j] = 0
+	}
+
+	score := 0
+	i := 1
+	j_max := 0
+	for ai in sa {
+		defer i = 1 - i
+		j := 1
+		for bj in sb {
+			defer j += 1
+			max := 0
+			h1 := h[1 - i][j - 1]
+			if ai == bj {h1 += match} else {h1 += mismatch}
+			if h1 > max {max = h1}
+
+			h2 := h[1 - i][j] + gap
+			if h2 > max {max = h2}
+
+			h3 := h[i][j - 1] + gap
+			if h3 > max {max = h3}
+			h[i][j] = max
+
+			if max > score {
+				score = max
+				j_max = j
+			}
+		}
+	}
+	return score
+}
+
 print_score :: proc(a: string, b: string) {
 	//assert(sm1(a, b) == sm2(a, b))
 	//fmt.printfln("sm1: %v | %v | %v", a, b, sm1(a, b))
@@ -163,7 +209,8 @@ print_score :: proc(a: string, b: string) {
 	//fmt.printfln("sm3: %v | %v | %v", a, b, s3)
 	//fmt.printfln("le: %v | %v | %v", a, b, strings.levenshtein_distance(a, b))
 	assert(s2 == s3)
-	fmt.printfln("%v | %v | %v", a, b, wordmatch(a, b))
+	//fmt.printfln("%v | %v | %v", a, b, wordmatch(a, b))
+	fmt.printfln("%v | %v | %v", a, b, sm_word(a, b))
 }
 
 main :: proc() {
