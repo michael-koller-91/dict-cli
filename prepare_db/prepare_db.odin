@@ -115,12 +115,11 @@ main :: proc() {
 		fmt.eprintfln("ERROR: Could not open file %v.", path_dict_txt)
 	}
 
-	lang1: [dynamic]string
-	lang2: [dynamic]string
+	lang1_raw: [dynamic]string
+	lang2_raw: [dynamic]string
 	category: [dynamic]string
-	area: [dynamic]string
-	lang1_words: [dynamic][]string
-	lang2_lower: [dynamic]string
+	//area: [dynamic]string
+	lang1_normalized: [dynamic][]string
 
 	it := string(file_read)
 	k := 0
@@ -137,23 +136,23 @@ main :: proc() {
 		split := strings.split(str, "\t", context.temp_allocator)
 		if len(split) < 2 {continue}
 		if (len(split) == 2) | (len(split) == 3) | (len(split) == 4) {
-			append(&lang1, strings.clone(strings.trim_space(split[0])))
-			append(&lang2, strings.clone(strings.trim_space(split[1])))
+			append(&lang1_raw, strings.clone(strings.trim_space(split[0])))
+			append(&lang2_raw, strings.clone(strings.trim_space(split[1])))
 		} else {
 			fmt.println("------------ exception length --------------")
 			fmt.println(str)
 		}
 		if len(split) == 2 {
 			append(&category, strings.clone(""))
-			append(&area, strings.clone(""))
+			// append(&area, strings.clone(""))
 		}
 		if len(split) == 3 {
 			append(&category, strings.clone(strings.trim_space(split[2])))
-			append(&area, strings.clone(""))
+			// append(&area, strings.clone(""))
 		}
 		if len(split) == 4 {
 			append(&category, strings.clone(strings.trim_space(split[2])))
-			append(&area, strings.clone(strings.trim_space(split[3])))
+			// append(&area, strings.clone(strings.trim_space(split[3])))
 		}
 		if len(split) > 4 {
 			fmt.eprintfln("ERROR: Exception length: %v:", len(split))
@@ -162,69 +161,65 @@ main :: proc() {
 		}
 	}
 
+	/*
+	normalize
+	- only lower case runes
+	- replace (basically non-latin) runes
+	- split off comments
+	*/
 	normalizer := get_normalizer()
-	for _, j in lang1 {
-		normalized := extract_normalized_term(lang1[j], normalizer)
+	for _, j in lang1_raw {
+		normalized := extract_normalized_term(lang1_raw[j], normalizer)
 		fields := split_fields(normalized)
-		append(&lang1_words, fields)
-		append(&lang2_lower, strings.to_lower(lang2[j]))
+		append(&lang1_normalized, fields)
 	}
-	assert(len(lang1) == len(lang2))
-	assert(len(lang1) == len(lang1_words))
-	assert(len(lang1) == len(lang2_lower))
-	assert(len(lang1) == len(category))
-	assert(len(lang1) == len(area))
-	fmt.println("Array lengths:", len(lang1))
+	assert(len(lang1_raw) == len(lang2_raw))
+	assert(len(lang1_raw) == len(lang1_normalized))
+	assert(len(lang1_raw) == len(category))
+	// assert(len(lang1_raw) == len(area))
+	fmt.println("Array lengths after normalization:", len(lang1_raw))
 
-	// m := make(map[rune]bool)
-	// defer delete(m)
-	// for words in lang1_words {
-	// 	for word in words {
-	// 		for r in word {
-	// 			m[r] = true
-	// 		}
-	// 	}
-	// }
-	// fmt.println("\nRunes:", len(m))
-	// counter := 0
-	// for key in m {
-	// 	//fmt.printf("'%v'  ", key)
-	// 	if !(key in normalizer) {
-	// 		fmt.printf("'%v'  ", key)
-	// 		counter += 1
-	// 	}
-	// 	if counter == 10 {
-	// 		counter = 0
-	// 		fmt.println()
-	// 	}
-	// }
-	// fmt.println()
-
-	// m1 := make(map[string]bool)
-	// defer delete(m1)
-	// for elem in lang1_words {
-	// 	m1[elem] = true
-	// }
-	// fmt.println("Without duplicates:", len(m1))
-
-	// m2 := make(map[string]bool)
-	// defer delete(m2)
-	// for elem in lang2_lower {
-	// 	m2[elem] = true
-	// }
-	// fmt.println("Without duplicates:", len(m2))
-
-	arrays: [][]string = {lang1[:], lang2[:], lang2_lower[:], category[:], area[:]}
-	array_names: []string = {"lang1", "lang2", "lang2_lower", "category", "area"}
-	files_out: []string = {
-		"../generated_lang1.odin",
-		"../generated_lang2.odin",
-		"../generated_lang2_lower.odin",
-		"../generated_category.odin",
-		"../generated_area.odin",
+	/*
+	handle duplicates
+	- use auxiliary maps to find duplicates
+	- afterwards, convert the maps to two arrays so that we can index from one into the other (maps don't guarantee an order)
+	*/
+	// value: lang1's terms with duplicates removed
+	lang1_aux_map := make(map[string][]string)
+	// value: all translations of lang1's terms
+	// if there was no duplicate in lang 1, value is a len=1 list
+	// if there were duplicates in lang 1, value contains an element for every corresponding translation
+	lang2_aux_map := make(map[string][dynamic]string)
+	for array, idx in lang1_normalized {
+		key := strings.join(array, "+")
+		if !(key in lang1_aux_map) {
+			lang1_aux_map[key] = array
+			lang2_aux_map[key] = make([dynamic]string)
+		}
+		append(&lang2_aux_map[key], lang2_raw[idx])
 	}
-	for array, k in arrays {
-		write_string_array_to_file(files_out[k], array, array_names[k])
+
+	lang1_dedup: [dynamic][]string
+	lang2_dedups: [dynamic][]string
+	for key, val in lang1_aux_map {
+		append(&lang1_dedup, val)
+		append(&lang2_dedups, lang2_aux_map[key][:])
 	}
-	write_string_arrays_to_file("../generated_lang1_lower.odin", lang1_words[:], "lang1_words")
+	assert(len(lang1_dedup) == len(lang2_dedups))
+	fmt.println("Array lengths after handling duplicates:", len(lang1_dedup))
+
+	// arrays: [][]string = {lang1_raw[:], lang2_raw[:], category[:]}
+	// array_names: []string = {"lang1_raw", "lang2_raw", "category"}
+	// files_out: []string = {
+	// 	"../generated_lang1.odin",
+	// 	"../generated_lang2.odin",
+	// 	"../generated_category.odin",
+	// 	//"../generated_area.odin",
+	// }
+	// for array, k in arrays {
+	// 	write_string_array_to_file(files_out[k], array, array_names[k])
+	// }
+
+	write_string_arrays_to_file("../generated_lang1_dedup.odin", lang1_dedup[:], "lang1_dedup")
+	write_string_arrays_to_file("../generated_lang2_dedups.odin", lang2_dedups[:], "lang2_dedups")
 }

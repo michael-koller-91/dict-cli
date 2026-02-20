@@ -1,8 +1,12 @@
 // TODO: add a command line flag to print all hits
-// TODO: normalize database: replace all white spaces with " " so that exact_word_match works
 // TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
+// - probably via Smith-Waterman
 // TODO: can sm_word be implement with i8? think about the largest possible match value
 // TODO: does it make sense to have all single-words as key in a map for faster matching?
+// TODO: in `((für) etw. [Akk.]) pauken [ugs.] [intensiv lernen]`, we'll currently split off "pauken" because it comes after `[Akk.]`
+// TODO: should "etw. denken" be considered a one-word-hit for "denken"?
+// - dict.cc displays it like that
+
 package main
 
 import "base:runtime"
@@ -90,7 +94,7 @@ main :: proc() {
 	tic := time.tick_now()
 	hits: [dynamic]int
 	max_len := 0
-	for &array, idx in lang1_words {
+	for &array, idx in lang1_dedup {
 		//if exact_word_match(&elem, phrase) {
 		//_, fmatch := regex.match(fpat, elem)
 		//if fmatch {
@@ -107,16 +111,28 @@ main :: proc() {
 		}
 	}
 	toc := time.tick_since(tic)
-	fmt.printfln("done. %v hits in %v seconds.", len(hits), toc)
+	fmt.printfln("done. %v hits in %v", len(hits), toc)
 
-	width := 50
 	for idx, hitcount in hits {
-		s := strings.left_justify(lang1[idx], max_len, " ")
-		fmt.printfln("> %v | %v | %v", category[idx], s, lang2[idx])
+		translations := lang2_dedups[idx]
+		for translation in translations {
+			fmt.println(translation)
+		}
 
 		if hitcount > 20 {
 			fmt.println("Only the first 20 results were printed.")
 			break
 		}
 	}
+
+	// width := 50
+	// for idx, hitcount in hits {
+	// 	s := strings.left_justify(lang1[idx], max_len, " ")
+	// 	fmt.printfln("> %v | %v | %v", category[idx], s, lang2[idx])
+
+	// 	if hitcount > 20 {
+	// 		fmt.println("Only the first 20 results were printed.")
+	// 		break
+	// 	}
+	// }
 }
