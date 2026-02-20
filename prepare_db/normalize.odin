@@ -4,6 +4,7 @@ import "core:encoding/entity"
 import "core:fmt"
 import "core:io"
 import "core:strings"
+import "core:unicode/utf8"
 
 get_normalizer :: proc() -> map[rune]string {
 	normalizer := make(map[rune]string)
@@ -29,8 +30,8 @@ get_normalizer :: proc() -> map[rune]string {
 	normalizer['}'] = "}"
 	normalizer['['] = "["
 	normalizer[']'] = "]"
-	normalizer['-'] = "-"
 	// replacements
+	normalizer['-'] = " "
 	normalizer['('] = " "
 	normalizer[')'] = " "
 	normalizer['.'] = " "
@@ -52,7 +53,7 @@ get_normalizer :: proc() -> map[rune]string {
 	normalizer['–'] = " "
 	normalizer['—'] = " "
 	normalizer['−'] = " "
-	normalizer['_'] = ""
+	normalizer['_'] = "" // not a space on purpose
 	normalizer['='] = " "
 	normalizer['‎'] = " "
 	normalizer['¡'] = " "
@@ -153,14 +154,11 @@ normalize_runes :: proc(str: string, normalizer: map[rune]string) -> string {
 
 	for r, idx in decoded_str {
 		n, ok := normalizer[r]
-		if r == '\'' {
-			fmt.println("%q", str)
-		}
 		if ok {
 			io.write_string(w, n)
 		} else {
-			fmt.eprintfln("ERROR: Unexpected rune %q (%v) in %q", r, r, decoded_str)
-			//os.exit(1)
+			fmt.eprintfln("ERROR: Unknown rune %q (%v) in %v", r, r, decoded_str)
+			panic("ERROR: Extend the normalizer.")
 		}
 	}
 	return strings.to_string(b)

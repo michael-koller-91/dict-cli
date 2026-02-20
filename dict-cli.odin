@@ -1,6 +1,8 @@
 // TODO: add a command line flag to print all hits
 // TODO: normalize database: replace all white spaces with " " so that exact_word_match works
 // TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
+// TODO: can sm_word be implement with i8? think about the largest possible match value
+// TODO: does it make sense to have all single-words as key in a map for faster matching?
 package main
 
 import "base:runtime"
@@ -88,14 +90,19 @@ main :: proc() {
 	tic := time.tick_now()
 	hits: [dynamic]int
 	max_len := 0
-	for &elem, idx in lang1_lower {
+	for &array, idx in lang1_words {
 		//if exact_word_match(&elem, phrase) {
 		//_, fmatch := regex.match(fpat, elem)
 		//if fmatch {
-		if sm.sm_word(elem, phrase) == 1 {
-			append(&hits, idx)
-			if len(elem) > max_len {
-				max_len = len(elem)
+		if len(array) == 1 {
+			for &elem in array {
+				//if sm.sm_word(phrase, elem) == 1 {
+				if phrase == elem {
+					append(&hits, idx)
+					if len(elem) > max_len {
+						max_len = len(elem)
+					}
+				}
 			}
 		}
 	}
