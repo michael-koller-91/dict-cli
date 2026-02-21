@@ -1,6 +1,7 @@
-// TODO: add a command line flag to print all hits
+// TODO: add a command line flag to print all hits_2
 // TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
 // - probably via Smith-Waterman
+// TODO: is Needleman-Wunsch what we want?
 // TODO: can sm_word be implement with i8? think about the largest possible match value
 // TODO: does it make sense to have all single-words as key in a map for faster matching?
 // TODO: in `((für) etw. [Akk.]) pauken [ugs.] [intensiv lernen]`, we'll currently split off "pauken" because it comes after `[Akk.]`
@@ -92,41 +93,130 @@ main :: proc() {
 
 	fmt.print("Searching...")
 	tic := time.tick_now()
-	hits: [dynamic]int
-	max_len := 0
-	for &array, idx in lang1_dedup {
-		//if exact_word_match(&elem, phrase) {
-		//_, fmatch := regex.match(fpat, elem)
-		//if fmatch {
-		if len(array) == 1 {
-			for &elem in array {
-				//if sm.sm_word(phrase, elem) == 1 {
-				if phrase == elem {
-					append(&hits, idx)
-					if len(elem) > max_len {
-						max_len = len(elem)
-					}
-				}
+	hit_1 := -1
+	for word, idx in lang1_dedup_1_word {
+		if phrase == word {
+			hit_1 = idx
+			break
+		}
+	}
+	if hit_1 == -1 {
+		toc := time.tick_since(tic)
+		fmt.printfln("done. No hit (%v)", toc)
+		os.exit(0)
+	}
+
+	hits_2: [dynamic]int
+	for words, idx in lang1_dedup_2_words {
+		for word in words {
+			if phrase == word {
+				append(&hits_2, idx)
 			}
 		}
 	}
-	toc := time.tick_since(tic)
-	fmt.printfln("done. %v hits in %v", len(hits), toc)
 
-	for idx, hitcount in hits {
-		translations := lang2_dedups[idx]
+	hits_3: [dynamic]int
+	for words, idx in lang1_dedup_3_words {
+		for word in words {
+			if phrase == word {
+				append(&hits_3, idx)
+			}
+		}
+	}
+
+	hits_4: [dynamic]int
+	for words, idx in lang1_dedup_4_words {
+		for word in words {
+			if phrase == word {
+				append(&hits_4, idx)
+			}
+		}
+	}
+
+	hits_mult: [dynamic]int
+	for words, idx in lang1_dedup_mult_words {
+		for word in words {
+			if phrase == word {
+				append(&hits_mult, idx)
+			}
+		}
+	}
+
+	//num_hits := hit == -1 ? len(hits_2) : len(hits_2) + 1
+	num_hits := 1 + len(hits_2) + len(hits_3) + len(hits_4) + len(hits_mult)
+
+	toc := time.tick_since(tic)
+	fmt.printfln("done. %v hits (%v)", num_hits, toc)
+
+	//lang2_dedups_single_word
+	//lang2_dedups_multiple_words
+
+	//for idx, hitcount in hits_2 {
+	translations := trans1_dedups_1_word[hit_1]
+	for translation in translations {
+		fmt.println(translation)
+	}
+	fmt.println()
+
+	lines_max :: 10
+
+	lines_printed := 0
+	for hit in hits_2 {
+		translations = trans1_dedups_2_words[hit]
 		for translation in translations {
 			fmt.println(translation)
+			lines_printed += 1
 		}
+		if lines_printed > lines_max {
+			fmt.println("...")
+			break
+		}
+	}
+	if len(hits_2) > 0 {fmt.println()}
 
-		if hitcount > 20 {
-			fmt.println("Only the first 20 results were printed.")
+	lines_printed = 0
+	for hit in hits_3 {
+		translations = trans1_dedups_3_words[hit]
+		for translation in translations {
+			fmt.println(translation)
+			lines_printed += 1
+		}
+		if lines_printed > lines_max {
+			fmt.println("...")
+			break
+		}
+	}
+	if len(hits_3) > 0 {fmt.println()}
+
+	lines_printed = 0
+	for hit in hits_4 {
+		translations = trans1_dedups_4_words[hit]
+		for translation in translations {
+			fmt.println(translation)
+			lines_printed += 1
+		}
+		if lines_printed > lines_max {
+			fmt.println("...")
+			break
+		}
+	}
+	if len(hits_4) > 0 {fmt.println()}
+
+	lines_printed = 0
+	for hit in hits_mult {
+		translations = trans1_dedups_mult_words[hit]
+		for translation in translations {
+			fmt.println(translation)
+			lines_printed += 1
+		}
+		if lines_printed > lines_max {
+			fmt.println("...")
 			break
 		}
 	}
 
 	// width := 50
-	// for idx, hitcount in hits {
+	// for idx, hitcount in hits_2 {
 	// 	s := strings.left_justify(lang1[idx], max_len, " ")
 	// 	fmt.printfln("> %v | %v | %v", category[idx], s, lang2[idx])
 
