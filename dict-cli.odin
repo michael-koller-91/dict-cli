@@ -1,12 +1,12 @@
-// TODO: add a command line flag to print all hits_2
+// TODO: add a command line flag to print all hits
 // TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
 // - probably via Smith-Waterman
-// TODO: is Needleman-Wunsch what we want?
+// - or is Needleman-Wunsch what we want?
 // TODO: can sm_word be implement with i8? think about the largest possible match value
 // TODO: does it make sense to have all single-words as key in a map for faster matching?
-// TODO: in `((für) etw. [Akk.]) pauken [ugs.] [intensiv lernen]`, we'll currently split off "pauken" because it comes after `[Akk.]`
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
+// TODO: also store (as an array of arrays) the lang1-terms so that they can be printed together with their translations
 
 package main
 
@@ -17,28 +17,17 @@ import "core:os"
 import "core:strings"
 // import "core:text/regex"
 import "core:time"
+import "prepare_db"
 import sm "smith-waterman"
 
 VERSION :: "0.0.1"
 
-write_examples :: proc() {
-}
-
-exact_word_match :: proc(haystack: ^string, needle: string) -> bool {
-	count := 0
-	for s in strings.split_iterator(haystack, " ") {
-		count += 1
-		if needle == s {return true}
-	}
-	return false
-}
-
-
 main :: proc() {
+	/*
 	Args :: struct {
 		phrase:  string `args:"pos=0,phrase" usage:"The phrase to translate."`,
-		version: bool `args:"name=version" usage:"Print the verison number and exit."`,
-		v:       bool `args:"name=v,hidden" usage:"Print the verison number and exit."`,
+		version: bool `args:"name=version" usage:"Print the version number and exit."`,
+		v:       bool `args:"name=v,hidden" usage:"Print the version number and exit."`,
 	}
 	args: Args
 	parse_err := flags.parse(&args, os.args[1:])
@@ -66,50 +55,63 @@ main :: proc() {
 		write_examples()
 		os.exit(0)
 	}
-
 	if args.version | args.v {
 		fmt.printfln("dict %v", VERSION)
 		os.exit(0)
 	}
-
 	if args.phrase == "" {
 		flags.write_usage(os.stream_from_handle(os.stdout), Args, os.args[0])
 		os.exit(0)
 	}
-
 	phrase := strings.to_lower(args.phrase)
+	normalizer := prepare_db.get_normalizer()
+	phrase_normalized := prepare_db.normalize_runes(phrase, normalizer)
+	*/
 
-	// pattern := fmt.aprintf("\\b%v\\b", phrase)
-	// fmt.println("pattern =", pattern)
-	// fpat, fpat_err := regex.create(pattern, {.No_Capture})
-	// if fpat_err != nil {
-	// 	fmt.eprintfln(
-	// 		"ERROR: Failed to create regular expression from filename pattern \"%v\": %v. Maybe escaping is missing?",
-	// 		phrase,
-	// 		fpat_err,
-	// 	)
-	// 	os.exit(1)
-	// }
-
-	fmt.print("Searching...")
-	tic := time.tick_now()
-	hit_1 := -1
-	for word, idx in lang1_dedup_1_word {
-		if phrase == word {
-			hit_1 = idx
-			break
-		}
+	program, args := os.args[0], os.args[1:]
+	if len(args) == 0 {
+		fmt.println("Usage: dict <word(s)>")
+		os.exit(0)
 	}
-	if hit_1 == -1 {
-		toc := time.tick_since(tic)
-		fmt.printfln("done. No hit (%v)", toc)
+	if (len(args) == 1) & ((args[0] == "-v") | (args[0] == "-version")) {
+		fmt.printfln("dict %v", VERSION)
 		os.exit(0)
 	}
 
+	normalizer := prepare_db.get_normalizer()
+	phrases_: [dynamic]string
+	for word, idx in args {
+		lower := strings.to_lower(word)
+		normalized := prepare_db.normalize_runes(lower, normalizer)
+		append(&phrases_, strings.clone(normalized))
+	}
+	phrases := phrases_[:]
+
+	num_phrases := len(phrases)
+
+	fmt.print("Searching...")
+	tic := time.tick_now()
+
+	hit_1 := -1
+	if num_phrases <= 1 {
+		for word, idx in lang1_dedup_1_word {
+			if phrases[0] == word {
+				hit_1 = idx
+				break
+			}
+		}
+		if hit_1 == -1 {
+			toc := time.tick_since(tic)
+			fmt.printfln("done. No hit (%v)", toc)
+			os.exit(0)
+		}
+	}
+
 	hits_2: [dynamic]int
-	for words, idx in lang1_dedup_2_words {
-		for word in words {
-			if phrase == word {
+	if num_phrases <= 2 {
+		for words, idx in lang1_dedup_2_words {
+			score := sm.nw_words(phrases, words)
+			if score == num_phrases {
 				append(&hits_2, idx)
 			}
 		}
@@ -117,68 +119,81 @@ main :: proc() {
 
 	hits_3: [dynamic]int
 	for words, idx in lang1_dedup_3_words {
-		for word in words {
-			if phrase == word {
-				append(&hits_3, idx)
-			}
+		score := sm.nw_words(phrases, words)
+		if score == num_phrases {
+			append(&hits_3, idx)
 		}
 	}
 
 	hits_4: [dynamic]int
 	for words, idx in lang1_dedup_4_words {
-		for word in words {
-			if phrase == word {
-				append(&hits_4, idx)
-			}
+		score := sm.nw_words(phrases, words)
+		if score == num_phrases {
+			append(&hits_4, idx)
 		}
 	}
 
 	hits_mult: [dynamic]int
 	for words, idx in lang1_dedup_mult_words {
-		for word in words {
-			if phrase == word {
-				append(&hits_mult, idx)
-			}
+		score := sm.nw_words(phrases, words)
+		if score >= num_phrases {
+			append(&hits_mult, idx)
 		}
 	}
 
-	//num_hits := hit == -1 ? len(hits_2) : len(hits_2) + 1
-	num_hits := 1 + len(hits_2) + len(hits_3) + len(hits_4) + len(hits_mult)
+	num_hits := len(hits_2) + len(hits_3) + len(hits_4) + len(hits_mult)
+	if hit_1 != -1 {num_hits += 1}
 
 	toc := time.tick_since(tic)
 	fmt.printfln("done. %v hits (%v)", num_hits, toc)
 
+	hits_1 := hit_1 == -1 ? 0 : 1
+	fmt.println("hits_1         =", hits_1)
+	fmt.println("len(hits_2)    =", len(hits_2))
+	fmt.println("len(hits_3)    =", len(hits_3))
+	fmt.println("len(hits_4)    =", len(hits_4))
+	fmt.println("len(hits_mult) =", len(hits_mult))
+
 	//lang2_dedups_single_word
 	//lang2_dedups_multiple_words
 
+	originals: []string
+	translations: []string
 	//for idx, hitcount in hits_2 {
-	translations := trans1_dedups_1_word[hit_1]
-	for translation in translations {
-		fmt.println(translation)
+	if num_phrases <= 1 {
+		originals = lang1_raw_dedups_1_word[hit_1]
+		translations = trans1_dedups_1_word[hit_1]
+		for translation, idx in translations {
+			fmt.printfln("%v  |  %v", originals[idx], translation)
+		}
+		fmt.println()
 	}
-	fmt.println()
 
 	lines_max :: 10
 
 	lines_printed := 0
-	for hit in hits_2 {
-		translations = trans1_dedups_2_words[hit]
-		for translation in translations {
-			fmt.println(translation)
-			lines_printed += 1
+	if num_phrases <= 2 {
+		for hit in hits_2 {
+			originals = lang1_raw_dedups_2_words[hit]
+			translations = trans1_dedups_2_words[hit]
+			for translation, idx in translations {
+				fmt.printfln("%v  |  %v", originals[idx], translation)
+				lines_printed += 1
+			}
+			if lines_printed > lines_max {
+				fmt.println("...")
+				break
+			}
 		}
-		if lines_printed > lines_max {
-			fmt.println("...")
-			break
-		}
+		if len(hits_2) > 0 {fmt.println()}
 	}
-	if len(hits_2) > 0 {fmt.println()}
 
 	lines_printed = 0
 	for hit in hits_3 {
+		originals = lang1_raw_dedups_3_words[hit]
 		translations = trans1_dedups_3_words[hit]
-		for translation in translations {
-			fmt.println(translation)
+		for translation, idx in translations {
+			fmt.printfln("%v  |  %v", originals[idx], translation)
 			lines_printed += 1
 		}
 		if lines_printed > lines_max {
@@ -190,9 +205,10 @@ main :: proc() {
 
 	lines_printed = 0
 	for hit in hits_4 {
+		originals = lang1_raw_dedups_4_words[hit]
 		translations = trans1_dedups_4_words[hit]
-		for translation in translations {
-			fmt.println(translation)
+		for translation, idx in translations {
+			fmt.printfln("%v  |  %v", originals[idx], translation)
 			lines_printed += 1
 		}
 		if lines_printed > lines_max {
@@ -204,9 +220,10 @@ main :: proc() {
 
 	lines_printed = 0
 	for hit in hits_mult {
+		originals = lang1_raw_dedups_mult_words[hit]
 		translations = trans1_dedups_mult_words[hit]
-		for translation in translations {
-			fmt.println(translation)
+		for translation, idx in translations {
+			fmt.printfln("%v  |  %v", originals[idx], translation)
 			lines_printed += 1
 		}
 		if lines_printed > lines_max {
