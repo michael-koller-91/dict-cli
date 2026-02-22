@@ -7,6 +7,32 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 
+write_string_array_to_file :: proc(file_out_path: string, array: []string, array_name: string) {
+	if os.exists(file_out_path) {
+		os.remove(file_out_path)
+	}
+	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	if err == os.ERROR_NONE {
+		fmt.print("Writing file", file_out_path)
+	} else {
+		fmt.eprintln("ERROR: Could not create file", file_out_path, ":", err)
+		os.exit(1)
+	}
+
+	tic := time.tick_now()
+	os.write_string(file_out_handle, "// This is generated code!\n")
+	os.write_string(file_out_handle, "package main\n")
+	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v]string = {{", array_name, len(array)))
+	for elem in array {
+		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
+	}
+	os.write_string(file_out_handle, "}\n")
+	toc := time.tick_since(tic)
+
+	os.close(file_out_handle)
+	fmt.printfln(" (%v)", toc)
+}
+
 write_string_arrays_to_file :: proc(
 	file_out_path: string,
 	arrays: [][]string,
@@ -47,38 +73,10 @@ write_string_arrays_to_file :: proc(
 	fmt.printfln(" (%v)", toc)
 }
 
-write_string_array_to_file :: proc(file_out_path: string, array: []string, array_name: string) {
-	if os.exists(file_out_path) {
-		os.remove(file_out_path)
-	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
-	if err == os.ERROR_NONE {
-		fmt.print("Writing file", file_out_path)
-	} else {
-		fmt.eprintln("ERROR: Could not create file", file_out_path, ":", err)
-		os.exit(1)
-	}
-
-	tic := time.tick_now()
-	os.write_string(file_out_handle, "// This is generated code!\n")
-	os.write_string(file_out_handle, "package main\n")
-	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v]string = {{", array_name, len(array)))
-	for elem in array {
-		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
-	}
-	os.write_string(file_out_handle, "}\n")
-	toc := time.tick_since(tic)
-
-	os.close(file_out_handle)
-	fmt.printfln(" (%v)", toc)
-}
-
 extract_normalized_term :: proc(str: string, normalizer: map[rune]string) -> string {
 	lower := strings.to_lower(str)
-	split := strings.split(lower, "{") // split off gender
-	split = strings.split(split[0], "[") // split off comments
-	split = strings.split(split[0], "<") // split off abbreviations
-	normalized := normalize_runes(split[0], normalizer)
+	no_brackets := remove_bracket_terms(lower)
+	normalized := normalize_runes(no_brackets, normalizer)
 	return normalized
 }
 
@@ -99,6 +97,105 @@ split_fields :: proc(str: string) -> []string {
 		if len(lstr) > 0 {append(&r, lstr)}
 	}
 	return r[:]
+}
+
+
+find_pair_of_brackets :: proc(
+	s: string,
+	openbr: rune,
+	closebr: rune,
+) -> (
+	found_match: bool,
+	begin: int,
+	end: int,
+) {
+	found_match = false
+	begin = -1
+	end = -1
+
+	found_begin := false
+	for r, off in s {
+		if r == openbr {
+			found_begin = true
+			begin = off
+		}
+		if found_begin == true {
+			if r == closebr {
+				found_match = true
+				end = off
+				return
+			}
+		}
+	}
+
+	return
+}
+
+remove_pairs_of_brackets :: proc(
+	s: string,
+	openbr: rune,
+	closebr: rune,
+	allocator := context.allocator,
+) -> string {
+	output := s
+	match, begin, end := find_pair_of_brackets(s, openbr, closebr)
+	counter := 0
+	for match {
+		counter += 1
+		output, _ = strings.remove(output, output[begin:end + 1], 1, allocator)
+		match, begin, end = find_pair_of_brackets(output, openbr, closebr)
+		if counter > 100 {
+			fmt.println(s)
+			panic("wtf")
+		}
+	}
+	return output
+}
+
+/*
+Remove terms in angle, curly, or square brackets.
+
+*Allocates Using Provided Allocator*
+
+Input:
+- s: The input string
+- allocator: (default: context.allocator)
+
+Output:
+- output: The modified string
+*/
+remove_bracket_terms :: proc(s: string, allocator := context.allocator) -> string {
+	output := remove_pairs_of_brackets(s, '<', '>', allocator)
+	output = remove_pairs_of_brackets(output, '{', '}', allocator)
+	output = remove_pairs_of_brackets(output, '[', ']', allocator)
+	return output
+}
+
+quick_test_remove_bracket_terms :: proc() {
+	ex1 := "((für) etw. [Akk.]) pauken [ugs.] [intensiv lernen]"
+	ex1_noc := remove_bracket_terms(ex1)
+	fmt.println(ex1)
+	fmt.println(ex1_noc)
+
+	ex2 := "(älles) Heer {n} {m} des Himmels [Luther]"
+	ex2_noc := remove_bracket_terms(ex2)
+	fmt.println(ex2)
+	fmt.println(ex2_noc)
+
+	ex3 := "asdf <abbrev.> test"
+	ex3_noc := remove_bracket_terms(ex3)
+	fmt.println(ex3)
+	fmt.println(ex3_noc)
+
+	ex4 := "asdf bbrev.> test"
+	ex4_noc := remove_bracket_terms(ex4)
+	fmt.println(ex4)
+	fmt.println(ex4_noc)
+
+	ex5 := "asdf <bbrev test"
+	ex5_noc := remove_bracket_terms(ex5)
+	fmt.println(ex5)
+	fmt.println(ex5_noc)
 }
 
 main :: proc() {
@@ -194,6 +291,7 @@ main :: proc() {
 	tic = time.tick_now()
 	// value: lang1's terms with duplicates removed
 	lang1_aux_map := make(map[string][]string)
+	lang1_raw_aux_map := make(map[string][dynamic]string)
 	// value: all translations of lang1's terms
 	// if there was no duplicate in lang 1, value is a len=1 list
 	// if there were duplicates in lang 1, value contains an element for every corresponding translation
@@ -202,8 +300,10 @@ main :: proc() {
 		key := strings.join(array, "+")
 		if !(key in lang1_aux_map) {
 			lang1_aux_map[key] = array
+			lang1_raw_aux_map[key] = make([dynamic]string)
 			trans1_aux_map[key] = make([dynamic]string)
 		}
+		append(&lang1_raw_aux_map[key], lang1_raw[idx])
 		append(&trans1_aux_map[key], lang2_raw[idx])
 	}
 	assert(len(lang1_aux_map) == len(trans1_aux_map))
@@ -216,6 +316,11 @@ main :: proc() {
 	lang1_dedup_3_words: [dynamic][]string
 	lang1_dedup_4_words: [dynamic][]string
 	lang1_dedup_mult_words: [dynamic][]string
+	lang1_raw_dedups_1_word: [dynamic][]string
+	lang1_raw_dedups_2_words: [dynamic][]string
+	lang1_raw_dedups_3_words: [dynamic][]string
+	lang1_raw_dedups_4_words: [dynamic][]string
+	lang1_raw_dedups_mult_words: [dynamic][]string
 	trans1_dedups_1_word: [dynamic][]string
 	trans1_dedups_2_words: [dynamic][]string
 	trans1_dedups_3_words: [dynamic][]string
@@ -231,25 +336,35 @@ main :: proc() {
 		}
 		if len(val) == 1 {
 			append(&lang1_dedup_1_word, val[0])
+			append(&lang1_raw_dedups_1_word, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_1_word, trans1_aux_map[key][:])
 		} else if len(val) == 2 {
 			append(&lang1_dedup_2_words, val)
+			append(&lang1_raw_dedups_2_words, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_2_words, trans1_aux_map[key][:])
 		} else if len(val) == 3 {
 			append(&lang1_dedup_3_words, val)
+			append(&lang1_raw_dedups_3_words, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_3_words, trans1_aux_map[key][:])
 		} else if len(val) == 4 {
 			append(&lang1_dedup_4_words, val)
+			append(&lang1_raw_dedups_4_words, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_4_words, trans1_aux_map[key][:])
 		} else {
 			append(&lang1_dedup_mult_words, val)
+			append(&lang1_raw_dedups_mult_words, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_mult_words, trans1_aux_map[key][:])
 		}
 	}
+	assert(len(lang1_dedup_1_word) == len(lang1_raw_dedups_1_word))
 	assert(len(lang1_dedup_1_word) == len(trans1_dedups_1_word))
+	assert(len(lang1_dedup_2_words) == len(lang1_raw_dedups_2_words))
 	assert(len(lang1_dedup_2_words) == len(trans1_dedups_2_words))
+	assert(len(lang1_dedup_3_words) == len(lang1_raw_dedups_3_words))
 	assert(len(lang1_dedup_3_words) == len(trans1_dedups_3_words))
+	assert(len(lang1_dedup_4_words) == len(lang1_raw_dedups_4_words))
 	assert(len(lang1_dedup_4_words) == len(trans1_dedups_4_words))
+	assert(len(lang1_dedup_mult_words) == len(lang1_raw_dedups_mult_words))
 	assert(len(lang1_dedup_mult_words) == len(trans1_dedups_mult_words))
 	toc = time.tick_since(tic)
 	fmt.printfln(
@@ -303,6 +418,31 @@ main :: proc() {
 		"../generated_lang1_dedup_mult_words.odin",
 		lang1_dedup_mult_words[:],
 		"lang1_dedup_mult_words",
+	)
+	write_string_arrays_to_file(
+		"../generated_lang1_raw_dedups_1_word.odin",
+		lang1_raw_dedups_1_word[:],
+		"lang1_raw_dedups_1_word",
+	)
+	write_string_arrays_to_file(
+		"../generated_lang1_raw_dedups_2_words.odin",
+		lang1_raw_dedups_2_words[:],
+		"lang1_raw_dedups_2_words",
+	)
+	write_string_arrays_to_file(
+		"../generated_lang1_raw_dedups_3_words.odin",
+		lang1_raw_dedups_3_words[:],
+		"lang1_raw_dedups_3_words",
+	)
+	write_string_arrays_to_file(
+		"../generated_lang1_raw_dedups_4_words.odin",
+		lang1_raw_dedups_4_words[:],
+		"lang1_raw_dedups_4_words",
+	)
+	write_string_arrays_to_file(
+		"../generated_lang1_raw_dedups_mult_words.odin",
+		lang1_raw_dedups_mult_words[:],
+		"lang1_raw_dedups_mult_words",
 	)
 	write_string_arrays_to_file(
 		"../generated_trans1_dedups_1_word.odin",
