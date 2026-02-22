@@ -9,6 +9,50 @@ match :: 3
 mismatch :: -3
 gap :: -2
 
+nw_words :: proc(a: []string, b: []string) -> int {
+	match_score :: 1
+	mismatch_score :: 0
+	gap_score :: 0
+
+	// for now, assume that sb is always at least as long as sa
+	sa, sb: []string
+	if len(a) > len(b) {
+		sa, sb = b, a
+	} else {
+		sa, sb = a, b
+	}
+
+	n := len(sa) + 1
+	m := len(sb) + 1
+	h := make([][]int, n)
+
+	// init
+	for i in 0 ..< n {
+		h[i] = make([]int, m)
+		h[i][0] = gap_score * i
+	}
+	for j in 0 ..< m {
+		h[0][j] = gap_score * j
+	}
+
+	score := 0
+	i := 1
+	for ai in sa {
+		defer i += 1
+		j := 1
+		for bj in sb {
+			defer j += 1
+			match := h[i - 1][j - 1]
+			if ai == bj {match += match_score} else {match += mismatch_score}
+			delete := h[i - 1][j] + gap_score
+			insert := h[i][j - 1] + gap_score
+			maximum := max(match, delete)
+			h[i][j] = max(maximum, insert)
+		}
+	}
+	return h[n - 1][m - 1]
+}
+
 nw_word :: proc(a: string, b: string) -> int {
 	// d ← Gap penalty score
 	// for i = 0 to length(A)
@@ -40,15 +84,14 @@ nw_word :: proc(a: string, b: string) -> int {
 	n := len(sa) + 1
 	m := len(sb) + 1
 	h := make([][]int, n)
-	if (n == 1) | (m == 1) {return 0}
 
 	// init
 	for i in 0 ..< n {
 		h[i] = make([]int, m)
-		h[i][0] = gap * i
+		h[i][0] = gap_score * i
 	}
 	for j in 0 ..< m {
-		h[0][j] = gap * j
+		h[0][j] = gap_score * j
 	}
 
 	score := 0
@@ -64,10 +107,14 @@ nw_word :: proc(a: string, b: string) -> int {
 			insert := h[i][j - 1] + gap_score
 			maximum := max(match, delete)
 			h[i][j] = max(maximum, insert)
+			//if ai == bj {
+			//	fmt.println("match=", match)
+			//	fmt.println("insert=", insert)
+			//	fmt.println("delete=", delete)
+			//}
 		}
 	}
 	return h[n - 1][m - 1]
-
 }
 
 s :: proc(a: string, i: int, b: string, j: int) -> int {
@@ -287,17 +334,17 @@ print_score :: proc(a: string, b: string) {
 }
 
 main :: proc() {
-	a := "TGTTACGG"
-	b := "GGTTGACTA"
+	// a := "TGTTACGG"
+	// b := "GGTTGACTA"
 
-	s1 := sm1(a, b)
-	fmt.println("score =", s1)
+	// s1 := sm1(a, b)
+	// fmt.println("score =", s1)
 
-	s2 := sm2(a, b)
-	fmt.println("score =", s2)
+	// s2 := sm2(a, b)
+	// fmt.println("score =", s2)
 
-	s3 := sm3(a, b)
-	fmt.println("score =", s3)
+	// s3 := sm3(a, b)
+	// fmt.println("score =", s3)
 
 	// print_score(
 	// 	"heißt",
@@ -328,8 +375,8 @@ main :: proc() {
 	// print_score("Bord gehen", "an Bord gehen")
 	// print_score("gehen", "gehen gehen")
 
-	print_score("foo", "fo")
-	print_score("foo", "bar")
+	// print_score("foo", "fo")
+	// print_score("foo", "bar")
 
 	print_score("foo", "foo")
 	print_score("foo", "foo foo")
@@ -338,11 +385,17 @@ main :: proc() {
 	print_score("foo", "foo bar baz")
 	print_score("foo", "bar foo bar baz")
 
-	print_score("foo foo", "foo")
-	print_score("foo bar", "foo")
+	print_score("foo foo", "foo foo")
+	print_score("foo foo", "foo bar")
+	print_score("foo bar", "foo foo")
 	print_score("foo bar", "foo bar")
+
 	print_score("foo bar", "foo bar baz")
 	print_score("foo bar", "foo baz bar")
+
+	print_score("an gehen", "an Bord gehen")
+
+	print_score("pauken", "für etw pauken")
 
 	// words: []string = {"foo", "bar", "baz"}
 	// for &word in words {
