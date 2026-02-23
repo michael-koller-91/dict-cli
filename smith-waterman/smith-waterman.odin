@@ -9,6 +9,22 @@ match :: 3
 mismatch :: -3
 gap :: -2
 
+count_matches :: proc(haystack: []string, needles: []string) -> (count: int) {
+	count = 0
+	//count2 := 0
+	i := 0
+	for needle in needles {
+		for j in i ..< len(haystack) {
+			//count += int(needle == haystack[j])
+			if needle == haystack[j] {
+				count += 1
+				break
+			}
+		}
+	}
+	return
+}
+
 nw_words :: proc(a: []string, b: []string) -> int {
 	match_score :: 1
 	mismatch_score :: 0
@@ -330,7 +346,17 @@ print_score :: proc(a: string, b: string) {
 	//fmt.printfln("le: %v | %v | %v", a, b, strings.levenshtein_distance(a, b))
 	assert(s2 == s3)
 	//fmt.printfln("%v | %v | %v", a, b, wordmatch(a, b))
-	fmt.printfln("sm: %v | %v | sm = %v | nw = %v", a, b, sm_word(a, b), nw_word(a, b))
+
+	sa := strings.split(a, " ")
+	sb := strings.split(b, " ")
+	fmt.printfln(
+		"sm: %v | %v | sm = %v | nw = %v | cm = %v",
+		a,
+		b,
+		sm_word(a, b),
+		nw_word(a, b),
+		count_matches(sb, sa),
+	)
 }
 
 main :: proc() {

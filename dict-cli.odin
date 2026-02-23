@@ -1,12 +1,7 @@
 // TODO: add a command line flag to print all hits
-// TODO: how would we handle searching for "an gehen" and finding "an bord gehen"
-// - probably via Smith-Waterman
-// - or is Needleman-Wunsch what we want?
-// TODO: can sm_word be implement with i8? think about the largest possible match value
 // TODO: does it make sense to have all single-words as key in a map for faster matching?
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
-// TODO: also store (as an array of arrays) the lang1-terms so that they can be printed together with their translations
 
 package main
 
@@ -15,12 +10,25 @@ import "core:flags"
 import "core:fmt"
 import "core:os"
 import "core:strings"
-// import "core:text/regex"
 import "core:time"
 import "prepare_db"
-import sm "smith-waterman"
 
 VERSION :: "0.0.1"
+
+
+match_score :: proc(haystack: []string, needles: []string) -> (count: int) {
+	count = 0
+	i := 0
+	for needle in needles {
+		for j in i ..< len(haystack) {
+			if needle == haystack[j] {
+				count += 1
+				break
+			}
+		}
+	}
+	return
+}
 
 main :: proc() {
 	/*
@@ -110,7 +118,7 @@ main :: proc() {
 	hits_2: [dynamic]int
 	if num_phrases <= 2 {
 		for words, idx in lang1_dedup_2_words {
-			score := sm.nw_words(phrases, words)
+			score := match_score(words, phrases)
 			if score == num_phrases {
 				append(&hits_2, idx)
 			}
@@ -119,7 +127,7 @@ main :: proc() {
 
 	hits_3: [dynamic]int
 	for words, idx in lang1_dedup_3_words {
-		score := sm.nw_words(phrases, words)
+		score := match_score(words, phrases)
 		if score == num_phrases {
 			append(&hits_3, idx)
 		}
@@ -127,7 +135,7 @@ main :: proc() {
 
 	hits_4: [dynamic]int
 	for words, idx in lang1_dedup_4_words {
-		score := sm.nw_words(phrases, words)
+		score := match_score(words, phrases)
 		if score == num_phrases {
 			append(&hits_4, idx)
 		}
@@ -135,7 +143,7 @@ main :: proc() {
 
 	hits_mult: [dynamic]int
 	for words, idx in lang1_dedup_mult_words {
-		score := sm.nw_words(phrases, words)
+		score := match_score(words, phrases)
 		if score >= num_phrases {
 			append(&hits_mult, idx)
 		}
