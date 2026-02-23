@@ -157,11 +157,11 @@ Remove terms in angle, curly, or square brackets.
 
 *Allocates Using Provided Allocator*
 
-Input:
+Inputs:
 - s: The input string
 - allocator: (default: context.allocator)
 
-Output:
+Returns:
 - output: The modified string
 */
 remove_bracket_terms :: proc(s: string, allocator := context.allocator) -> string {

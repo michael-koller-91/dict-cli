@@ -2,6 +2,7 @@
 // TODO: does it make sense to have all single-words as key in a map for faster matching?
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
+// TODO: write unit tests (e.g., for match_score)
 
 package main
 
@@ -16,16 +17,41 @@ import "prepare_db"
 VERSION :: "0.0.1"
 
 
-match_score :: proc(haystack: []string, needles: []string) -> (count: int) {
-	count = 0
+/*
+Match the `needles` with optional gaps against the `haystack`.
+
+Inputs:
+- haystack: An array of strings to be matched against
+- needles: An array of strings to match against the `haystack`
+
+Returns:
+- score: The number of matches
+
+Example:
+
+	import "core:fmt"
+	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"foo", "baz"})) // 2 matches with one gap
+	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"bar", "baz"})) // 2 matches without a gap
+	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"bar", "foo"})) // 1 match, order matters
+
+Output:
+
+	2
+	2
+	1
+
+*/
+match_score :: proc(haystack, needles: []string) -> (score: int) {
+	score = 0
 	i := 0
 	for needle in needles {
 		for j in i ..< len(haystack) {
 			if needle == haystack[j] {
-				count += 1
+				score += 1
 				break
 			}
 		}
+		i += 1
 	}
 	return
 }
