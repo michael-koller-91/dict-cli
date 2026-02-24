@@ -1,6 +1,7 @@
 package printer
 
 import "core:fmt"
+import "core:io"
 import "core:strings"
 
 str1: []string = {
@@ -45,13 +46,70 @@ to_width :: proc(str: string, width: int) -> []string {
 	return s
 }
 
-print :: proc(str1, str2: []string, width_per_str: int) {
+print_line :: proc(builder: ^strings.Builder, str1, str2: string, column_width: int) {
+	strings.write_string(builder, "│ ")
+	strings.write_string(builder, strings.left_justify(str1, column_width, " "))
+	strings.write_string(builder, "│ ")
+	strings.write_string(builder, strings.left_justify(str2, column_width, " "))
+	strings.write_string(builder, "│\n")
+}
+
+print_lines :: proc(builder: ^strings.Builder, str1, str2: string, column_width: int) {
+	n1 := strings.rune_count(str1)
+	n2 := strings.rune_count(str2)
+	if (n1 <= column_width) & (n2 <= column_width) {
+		print_line(builder, str1, str2, column_width)
+	} else if (n1 > column_width) & (n2 <= column_width) {
+		n_lines := n1 / column_width + 1
+		s1 := strings.left_justify(str1, n_lines * column_width, " ")
+		s2 := strings.left_justify(str2, n_lines * column_width, " ")
+		for i in 0 ..< n_lines {
+			print_line(
+				builder,
+				s1[i * column_width:(i + 1) * column_width],
+				s2[i * column_width:(i + 1) * column_width],
+				column_width,
+			)
+		}
+	}
+}
+
+print_topline :: proc(builder: ^strings.Builder, column_width: int) {
+	strings.write_string(builder, "┌")
+	for i in 0 ..< 2 * column_width + 3 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┐\n")
+}
+
+print_hline :: proc(builder: ^strings.Builder, column_width: int) {
+	strings.write_string(builder, "├")
+	for i in 0 ..< 2 * column_width + 3 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┤\n")
+}
+
+print_bottomline :: proc(builder: ^strings.Builder, column_width: int) {
+	strings.write_string(builder, "└")
+	for i in 0 ..< 2 * column_width + 3 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┘\n")
+}
+
+print :: proc(builder: ^strings.Builder, str1, str2: []string, column_width: int) {
 	assert(len(str1) == len(str2))
 	for i in 0 ..< len(str1) {
-		fmt.printfln("%v | %v", to_width(str1[i], width_per_str), to_width(str2[i], width_per_str))
+		print_lines(builder, str1[i], str2[i], column_width)
 	}
 }
 
 main :: proc() {
-	print(str1, str2, 20)
+	column_width := 20
+	builder := strings.builder_make()
+	print_topline(&builder, column_width)
+	print(&builder, str1, str2, column_width)
+	print_bottomline(&builder, column_width)
+	fmt.print(strings.to_string(builder))
 }
