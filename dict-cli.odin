@@ -3,6 +3,7 @@
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
 // TODO: write unit tests (e.g., for match_score)
+// TODO: add a command line flag to specifically print all n-word hits
 
 package main
 
@@ -13,8 +14,32 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import "prepare_db"
+import "printer"
 
 VERSION :: "0.0.1"
+
+NUM_ARRAYS :: 4
+
+lang1_dedup_words: [NUM_ARRAYS][][]string = {
+	lang1_dedup_2_words[:],
+	lang1_dedup_3_words[:],
+	lang1_dedup_4_words[:],
+	lang1_dedup_mult_words[:],
+}
+
+lang1_raw_dedups_words: [NUM_ARRAYS][][]string = {
+	lang1_raw_dedups_2_words[:],
+	lang1_raw_dedups_3_words[:],
+	lang1_raw_dedups_4_words[:],
+	lang1_raw_dedups_mult_words[:],
+}
+
+trans1_dedups_words: [NUM_ARRAYS][][]string = {
+	trans1_dedups_2_words[:],
+	trans1_dedups_3_words[:],
+	trans1_dedups_4_words[:],
+	trans1_dedups_mult_words[:],
+}
 
 
 /*
@@ -141,139 +166,72 @@ main :: proc() {
 		}
 	}
 
-	hits_2: [dynamic]int
-	if num_phrases <= 2 {
-		for words, idx in lang1_dedup_2_words {
+	hits: [NUM_ARRAYS][dynamic]int
+	for i in 0 ..< NUM_ARRAYS {
+		for words, idx in lang1_dedup_words[i] {
 			score := match_score(words, phrases)
 			if score == num_phrases {
-				append(&hits_2, idx)
+				append(&hits[i], idx)
 			}
 		}
 	}
 
-	hits_3: [dynamic]int
-	for words, idx in lang1_dedup_3_words {
-		score := match_score(words, phrases)
-		if score == num_phrases {
-			append(&hits_3, idx)
-		}
-	}
-
-	hits_4: [dynamic]int
-	for words, idx in lang1_dedup_4_words {
-		score := match_score(words, phrases)
-		if score == num_phrases {
-			append(&hits_4, idx)
-		}
-	}
-
-	hits_mult: [dynamic]int
-	for words, idx in lang1_dedup_mult_words {
-		score := match_score(words, phrases)
-		if score >= num_phrases {
-			append(&hits_mult, idx)
-		}
-	}
-
-	num_hits := len(hits_2) + len(hits_3) + len(hits_4) + len(hits_mult)
+	num_hits := 0
 	if hit_1 != -1 {num_hits += 1}
+	for i in 0 ..< NUM_ARRAYS {
+		num_hits += len(hits[i])
+	}
 
 	toc := time.tick_since(tic)
 	fmt.printfln("done. %v hits (%v)", num_hits, toc)
 
 	hits_1 := hit_1 == -1 ? 0 : 1
-	fmt.println("hits_1         =", hits_1)
-	fmt.println("len(hits_2)    =", len(hits_2))
-	fmt.println("len(hits_3)    =", len(hits_3))
-	fmt.println("len(hits_4)    =", len(hits_4))
-	fmt.println("len(hits_mult) =", len(hits_mult))
+	fmt.println("hits_1        =", hits_1)
+	for i in 0 ..< NUM_ARRAYS {
+		num_hits += len(hits[i])
+		fmt.printfln("len(hits[%v]) = %v", i, len(hits[i]))
+	}
+	fmt.println()
 
-	//lang2_dedups_single_word
-	//lang2_dedups_multiple_words
+	column_width := 50
+
+	builder := strings.builder_make()
+	printer.print_topline(&builder, column_width)
 
 	originals: []string
 	translations: []string
-	//for idx, hitcount in hits_2 {
 	if num_phrases <= 1 {
 		originals = lang1_raw_dedups_1_word[hit_1]
 		translations = trans1_dedups_1_word[hit_1]
-		for translation, idx in translations {
-			fmt.printfln("%v  |  %v", originals[idx], translation)
-		}
-		fmt.println()
+		printer.print(&builder, originals, translations, column_width, len(originals))
 	}
+	printer.print_hline(&builder, column_width)
 
-	lines_max :: 10
-
-	lines_printed := 0
-	if num_phrases <= 2 {
-		for hit in hits_2 {
-			originals = lang1_raw_dedups_2_words[hit]
-			translations = trans1_dedups_2_words[hit]
-			for translation, idx in translations {
-				fmt.printfln("%v  |  %v", originals[idx], translation)
-				lines_printed += 1
-			}
-			if lines_printed > lines_max {
-				fmt.println("...")
+	lines_max :: 5
+	for i in 0 ..< NUM_ARRAYS {
+		lines_printed := 0
+		for hit in hits[i] {
+			originals = lang1_raw_dedups_words[i][hit]
+			translations = trans1_dedups_words[i][hit]
+			if len(originals) <= lines_max - lines_printed {
+				printer.print(&builder, originals, translations, column_width)
+			} else {
+				printer.print(
+					&builder,
+					originals,
+					translations,
+					column_width,
+					lines_max - lines_printed,
+				)
+				printer.print_dots(&builder, column_width)
 				break
 			}
+			lines_printed += len(originals)
 		}
-		if len(hits_2) > 0 {fmt.println()}
-	}
-
-	lines_printed = 0
-	for hit in hits_3 {
-		originals = lang1_raw_dedups_3_words[hit]
-		translations = trans1_dedups_3_words[hit]
-		for translation, idx in translations {
-			fmt.printfln("%v  |  %v", originals[idx], translation)
-			lines_printed += 1
-		}
-		if lines_printed > lines_max {
-			fmt.println("...")
-			break
+		if lines_printed > 0 {
+			printer.print_hline(&builder, column_width)
 		}
 	}
-	if len(hits_3) > 0 {fmt.println()}
-
-	lines_printed = 0
-	for hit in hits_4 {
-		originals = lang1_raw_dedups_4_words[hit]
-		translations = trans1_dedups_4_words[hit]
-		for translation, idx in translations {
-			fmt.printfln("%v  |  %v", originals[idx], translation)
-			lines_printed += 1
-		}
-		if lines_printed > lines_max {
-			fmt.println("...")
-			break
-		}
-	}
-	if len(hits_4) > 0 {fmt.println()}
-
-	lines_printed = 0
-	for hit in hits_mult {
-		originals = lang1_raw_dedups_mult_words[hit]
-		translations = trans1_dedups_mult_words[hit]
-		for translation, idx in translations {
-			fmt.printfln("%v  |  %v", originals[idx], translation)
-			lines_printed += 1
-		}
-		if lines_printed > lines_max {
-			fmt.println("...")
-			break
-		}
-	}
-
-	// width := 50
-	// for idx, hitcount in hits_2 {
-	// 	s := strings.left_justify(lang1[idx], max_len, " ")
-	// 	fmt.printfln("> %v | %v | %v", category[idx], s, lang2[idx])
-
-	// 	if hitcount > 20 {
-	// 		fmt.println("Only the first 20 results were printed.")
-	// 		break
-	// 	}
-	// }
+	printer.print_bottomline(&builder, column_width)
+	fmt.println(strings.to_string(builder))
 }
