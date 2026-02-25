@@ -76,7 +76,11 @@ print_lines :: proc(builder: ^strings.Builder, str1, str2: string, column_width:
 
 print_topline :: proc(builder: ^strings.Builder, column_width: int) {
 	strings.write_string(builder, "┌")
-	for i in 0 ..< 2 * column_width + 3 {
+	for i in 0 ..< column_width + 1 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┬")
+	for i in 0 ..< column_width + 1 {
 		strings.write_string(builder, "─")
 	}
 	strings.write_string(builder, "┐\n")
@@ -84,7 +88,27 @@ print_topline :: proc(builder: ^strings.Builder, column_width: int) {
 
 print_hline :: proc(builder: ^strings.Builder, column_width: int) {
 	strings.write_string(builder, "├")
-	for i in 0 ..< 2 * column_width + 3 {
+	for i in 0 ..< column_width + 1 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┼")
+	for i in 0 ..< column_width + 1 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┤\n")
+}
+
+print_dots :: proc(builder: ^strings.Builder, column_width: int) {
+	strings.write_string(builder, "├")
+	strings.write_string(builder, "─")
+	strings.write_string(builder, "···")
+	for i in 0 ..< column_width - 3 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┼")
+	strings.write_string(builder, "─")
+	strings.write_string(builder, "···")
+	for i in 0 ..< column_width - 3 {
 		strings.write_string(builder, "─")
 	}
 	strings.write_string(builder, "┤\n")
@@ -92,15 +116,25 @@ print_hline :: proc(builder: ^strings.Builder, column_width: int) {
 
 print_bottomline :: proc(builder: ^strings.Builder, column_width: int) {
 	strings.write_string(builder, "└")
-	for i in 0 ..< 2 * column_width + 3 {
+	for i in 0 ..< column_width + 1 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┴")
+	for i in 0 ..< column_width + 1 {
 		strings.write_string(builder, "─")
 	}
 	strings.write_string(builder, "┘\n")
 }
 
-print :: proc(builder: ^strings.Builder, str1, str2: []string, column_width: int) {
+print :: proc(
+	builder: ^strings.Builder,
+	str1, str2: []string,
+	column_width: int,
+	num_rows: int = -1,
+) {
 	assert(len(str1) == len(str2))
-	for i in 0 ..< len(str1) {
+	n_rows := num_rows == -1 ? len(str1) : num_rows
+	for i in 0 ..< n_rows {
 		print_lines(builder, str1[i], str2[i], column_width)
 	}
 }
