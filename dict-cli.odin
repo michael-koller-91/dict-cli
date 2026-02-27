@@ -184,6 +184,9 @@ main :: proc() {
 
 	toc := time.tick_since(tic)
 	fmt.printfln("done. %v hits (%v)", num_hits, toc)
+	if num_hits == 0 {
+		os.exit(0)
+	}
 
 	hits_1 := hit_1 == -1 ? 0 : 1
 	fmt.println("hits_1        =", hits_1)
@@ -193,23 +196,46 @@ main :: proc() {
 	}
 	fmt.println()
 
-	column_width := 50
+	column_width :: 50
+	lines_max :: 5
 
+	tic = time.tick_now()
 	builder := strings.builder_make()
-	printer.print_topline(&builder, column_width)
 
+	printed_topline := false
 	originals: []string
 	translations: []string
+
 	if num_phrases <= 1 {
 		originals = lang1_raw_dedups_1_word[hit_1]
 		translations = trans1_dedups_1_word[hit_1]
+		if (!printed_topline) {
+			printer.print_topline(&builder, column_width)
+			printed_topline = true
+		}
 		printer.print(&builder, originals, translations, column_width, len(originals))
 	}
-	printer.print_hline(&builder, column_width)
 
-	lines_max :: 5
+	print_dots := false
+	first_print := true
 	for i in 0 ..< NUM_ARRAYS {
 		lines_printed := 0
+
+		if len(hits[i]) > 0 {
+			if (!printed_topline) {
+				printer.print_topline(&builder, column_width)
+				printed_topline = true
+			} else {
+				if print_dots {
+					printer.print_dots(&builder, column_width)
+				} else {
+					printer.print_hline(&builder, column_width)
+				}
+			}
+			first_print = false
+		}
+		print_dots = false
+
 		for hit in hits[i] {
 			originals = lang1_raw_dedups_words[i][hit]
 			translations = trans1_dedups_words[i][hit]
@@ -223,15 +249,19 @@ main :: proc() {
 					column_width,
 					lines_max - lines_printed,
 				)
-				printer.print_dots(&builder, column_width)
+				print_dots = true
 				break
 			}
 			lines_printed += len(originals)
 		}
-		if lines_printed > 0 {
-			printer.print_hline(&builder, column_width)
-		}
 	}
-	printer.print_bottomline(&builder, column_width)
+	if print_dots {
+		printer.print_bottomline_dots(&builder, column_width)
+	} else {
+		printer.print_bottomline(&builder, column_width)
+	}
 	fmt.println(strings.to_string(builder))
+
+	toc = time.tick_since(tic)
+	fmt.printfln("Printing took %v", toc)
 }

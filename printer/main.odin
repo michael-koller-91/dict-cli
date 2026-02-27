@@ -59,8 +59,9 @@ print_lines :: proc(builder: ^strings.Builder, str1, str2: string, column_width:
 	n2 := strings.rune_count(str2)
 	if (n1 <= column_width) & (n2 <= column_width) {
 		print_line(builder, str1, str2, column_width)
-	} else if (n1 > column_width) & (n2 <= column_width) {
-		n_lines := n1 / column_width + 1
+	} else {
+		n := max(n1, n2)
+		n_lines := n / column_width + 1
 		s1 := strings.left_justify(str1, n_lines * column_width, " ")
 		s2 := strings.left_justify(str2, n_lines * column_width, " ")
 		for i in 0 ..< n_lines {
@@ -121,6 +122,22 @@ print_bottomline :: proc(builder: ^strings.Builder, column_width: int) {
 	}
 	strings.write_string(builder, "┴")
 	for i in 0 ..< column_width + 1 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┘\n")
+}
+
+print_bottomline_dots :: proc(builder: ^strings.Builder, column_width: int) {
+	strings.write_string(builder, "└")
+	strings.write_string(builder, "─")
+	strings.write_string(builder, "···")
+	for i in 0 ..< column_width - 3 {
+		strings.write_string(builder, "─")
+	}
+	strings.write_string(builder, "┴")
+	strings.write_string(builder, "─")
+	strings.write_string(builder, "···")
+	for i in 0 ..< column_width - 3 {
 		strings.write_string(builder, "─")
 	}
 	strings.write_string(builder, "┘\n")
