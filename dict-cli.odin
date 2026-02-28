@@ -18,9 +18,10 @@ import "printer"
 
 VERSION :: "0.0.1"
 
-NUM_ARRAYS :: 4
+NUM_ARRAYS :: 5
 
 lang1_dedup_words: [NUM_ARRAYS][][]string = {
+	lang1_dedup_1_word[:],
 	lang1_dedup_2_words[:],
 	lang1_dedup_3_words[:],
 	lang1_dedup_4_words[:],
@@ -28,6 +29,7 @@ lang1_dedup_words: [NUM_ARRAYS][][]string = {
 }
 
 lang1_raw_dedups_words: [NUM_ARRAYS][][]string = {
+	lang1_raw_dedups_1_word[:],
 	lang1_raw_dedups_2_words[:],
 	lang1_raw_dedups_3_words[:],
 	lang1_raw_dedups_4_words[:],
@@ -35,6 +37,7 @@ lang1_raw_dedups_words: [NUM_ARRAYS][][]string = {
 }
 
 trans1_dedups_words: [NUM_ARRAYS][][]string = {
+	trans1_dedups_1_word[:],
 	trans1_dedups_2_words[:],
 	trans1_dedups_3_words[:],
 	trans1_dedups_4_words[:],
@@ -151,21 +154,6 @@ main :: proc() {
 	fmt.print("Searching...")
 	tic := time.tick_now()
 
-	hit_1 := -1
-	if num_phrases <= 1 {
-		for word, idx in lang1_dedup_1_word {
-			if phrases[0] == word {
-				hit_1 = idx
-				break
-			}
-		}
-		if hit_1 == -1 {
-			toc := time.tick_since(tic)
-			fmt.printfln("done. No hit (%v)", toc)
-			os.exit(0)
-		}
-	}
-
 	hits: [NUM_ARRAYS][dynamic]int
 	for i in 0 ..< NUM_ARRAYS {
 		for words, idx in lang1_dedup_words[i] {
@@ -177,7 +165,6 @@ main :: proc() {
 	}
 
 	num_hits := 0
-	if hit_1 != -1 {num_hits += 1}
 	for i in 0 ..< NUM_ARRAYS {
 		num_hits += len(hits[i])
 	}
@@ -188,8 +175,6 @@ main :: proc() {
 		os.exit(0)
 	}
 
-	hits_1 := hit_1 == -1 ? 0 : 1
-	fmt.println("hits_1        =", hits_1)
 	for i in 0 ..< NUM_ARRAYS {
 		num_hits += len(hits[i])
 		fmt.printfln("len(hits[%v]) = %v", i, len(hits[i]))
@@ -205,16 +190,6 @@ main :: proc() {
 	printed_topline := false
 	originals: []string
 	translations: []string
-
-	if num_phrases <= 1 {
-		originals = lang1_raw_dedups_1_word[hit_1]
-		translations = trans1_dedups_1_word[hit_1]
-		if (!printed_topline) {
-			printer.print_topline(&builder, column_width)
-			printed_topline = true
-		}
-		printer.print(&builder, originals, translations, column_width, len(originals))
-	}
 
 	print_dots := false
 	first_print := true
@@ -236,10 +211,15 @@ main :: proc() {
 		}
 		print_dots = false
 
+		l_max := lines_max
+		if i == 0 {
+			l_max = 100
+		}
+
 		for hit in hits[i] {
 			originals = lang1_raw_dedups_words[i][hit]
 			translations = trans1_dedups_words[i][hit]
-			if len(originals) <= lines_max - lines_printed {
+			if len(originals) <= l_max - lines_printed {
 				printer.print(&builder, originals, translations, column_width)
 			} else {
 				printer.print(
@@ -247,7 +227,7 @@ main :: proc() {
 					originals,
 					translations,
 					column_width,
-					lines_max - lines_printed,
+					l_max - lines_printed,
 				)
 				print_dots = true
 				break

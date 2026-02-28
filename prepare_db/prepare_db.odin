@@ -311,7 +311,7 @@ main :: proc() {
 	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
 
 	tic = time.tick_now()
-	lang1_dedup_1_word: [dynamic]string
+	lang1_dedup_1_word: [dynamic][]string
 	lang1_dedup_2_words: [dynamic][]string
 	lang1_dedup_3_words: [dynamic][]string
 	lang1_dedup_4_words: [dynamic][]string
@@ -335,7 +335,7 @@ main :: proc() {
 			continue
 		}
 		if len(val) == 1 {
-			append(&lang1_dedup_1_word, val[0])
+			append(&lang1_dedup_1_word, val)
 			append(&lang1_raw_dedups_1_word, lang1_raw_aux_map[key][:])
 			append(&trans1_dedups_1_word, trans1_aux_map[key][:])
 		} else if len(val) == 2 {
@@ -394,7 +394,7 @@ main :: proc() {
 	// 	write_string_array_to_file(files_out[k], array, array_names[k])
 	// }
 
-	write_string_array_to_file(
+	write_string_arrays_to_file(
 		"../generated_lang1_dedup_1_word.odin",
 		lang1_dedup_1_word[:],
 		"lang1_dedup_1_word",
