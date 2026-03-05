@@ -1,5 +1,6 @@
 package prepare_db
 
+import "./../utils"
 import "base:runtime"
 import "core:fmt"
 import "core:os"
@@ -50,32 +51,36 @@ write_string_arrays_to_file :: proc(
 		os.exit(1)
 	}
 
+	builder := strings.builder_make()
+
 	tic := time.tick_now()
-	os.write_string(file_out_handle, "// This is generated code!\n")
-	os.write_string(file_out_handle, "package main\n")
-	os.write_string(file_out_handle, "@(rodata)\n")
-	os.write_string(
-		file_out_handle,
-		fmt.aprintfln("%v: [%v][]string = {{", array_name, len(arrays)),
-	)
+	strings.write_string(&builder, "// This is generated code!\n")
+	strings.write_string(&builder, "package main\n")
+	strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]string = {{", array_name, len(arrays)))
 	for array in arrays {
-		os.write_string(file_out_handle, fmt.aprint("\t{"))
+		strings.write_string(&builder, fmt.aprint("\t{"))
 		for elem, idx in array {
-			os.write_string(file_out_handle, fmt.aprintf("%q", elem))
+			strings.write_string(&builder, fmt.aprintf("%q", elem))
 			if idx != len(array) - 1 {
-				os.write_string(file_out_handle, fmt.aprint(", "))
+				strings.write_string(&builder, fmt.aprint(", "))
 			}
 		}
-		os.write_string(file_out_handle, fmt.aprint("},\n"))
+		strings.write_string(&builder, fmt.aprint("},\n"))
 	}
-	os.write_string(file_out_handle, "}\n")
-	toc := time.tick_since(tic)
-
+	strings.write_string(&builder, "}\n")
+	os.write_string(file_out_handle, strings.to_string(builder))
 	os.close(file_out_handle)
+
+	toc := time.tick_since(tic)
 	fmt.printfln(" (%v)", toc)
 }
 
-write_int_arrays_to_file :: proc(file_out_path: string, arrays: [][]int, array_name: string) {
+write_index_to_file :: proc(
+	file_out_path: string,
+	map_: map[string][dynamic]int,
+	array_name: string,
+) {
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
@@ -87,25 +92,32 @@ write_int_arrays_to_file :: proc(file_out_path: string, arrays: [][]int, array_n
 		os.exit(1)
 	}
 
+	builder := strings.builder_make()
+
 	tic := time.tick_now()
-	os.write_string(file_out_handle, "// This is generated code!\n")
-	os.write_string(file_out_handle, "package main\n")
-	os.write_string(file_out_handle, "@(rodata)\n")
-	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v][]int = {{", array_name, len(arrays)))
-	for array in arrays {
-		os.write_string(file_out_handle, fmt.aprint("\t{"))
-		for elem, idx in array {
-			os.write_string(file_out_handle, fmt.aprintf("%v", elem))
-			if idx != len(array) - 1 {
-				os.write_string(file_out_handle, fmt.aprint(", "))
+	strings.write_string(&builder, "// This is generated code!\n")
+	strings.write_string(&builder, "package main\n")
+	strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]int = {{", array_name, cap(map_)))
+	capacity := uintptr(cap(map_))
+	for key, val in map_ {
+		keey := key
+		hash := utils.hash(&keey)
+		index := utils.map_hash_to_index(hash, capacity)
+		strings.write_string(&builder, fmt.aprintf("\t%v = {{", index))
+		for elem, idx in val {
+			strings.write_string(&builder, fmt.aprintf("%v", elem))
+			if idx != len(val) - 1 {
+				strings.write_string(&builder, fmt.aprint(", "))
 			}
 		}
-		os.write_string(file_out_handle, fmt.aprint("},\n"))
+		strings.write_string(&builder, fmt.aprint("},\n"))
 	}
-	os.write_string(file_out_handle, "}\n")
-	toc := time.tick_since(tic)
-
+	strings.write_string(&builder, "}\n")
+	os.write_string(file_out_handle, strings.to_string(builder))
 	os.close(file_out_handle)
+
+	toc := time.tick_since(tic)
 	fmt.printfln(" (%v)", toc)
 }
 
@@ -347,6 +359,7 @@ main :: proc() {
 
 	tic = time.tick_now()
 	lang1_dedup: [dynamic][]string
+	lang1_dedup_single_words: [dynamic]string
 	lang1_raw_dedup: [dynamic][]string
 	trans1_dedup: [dynamic][]string
 	for key, val in lang1_aux_map {
@@ -357,6 +370,9 @@ main :: proc() {
 		if len(val[0]) == 1 {
 			continue
 		}
+		if len(val) == 1 {
+			append(&lang1_dedup_single_words, val[0])
+		}
 		append(&lang1_dedup, val)
 		append(&lang1_raw_dedup, lang1_raw_aux_map[key][:])
 		append(&trans1_dedup, trans1_aux_map[key][:])
@@ -365,18 +381,7 @@ main :: proc() {
 	assert(len(lang1_dedup) == len(trans1_dedup))
 	toc = time.tick_since(tic)
 	fmt.println("\tArray lengths after deduplication:", len(lang1_dedup))
-
-	// arrays: [][]string = {lang1_raw[:], trans1_raw[:], category[:]}
-	// array_names: []string = {"lang1_raw", "trans1_raw", "category"}
-	// files_out: []string = {
-	// 	"../generated_lang1.odin",
-	// 	"../generated_trans1.odin",
-	// 	"../generated_category.odin",
-	// 	//"../generated_area.odin",
-	// }
-	// for array, k in arrays {
-	// 	write_string_array_to_file(files_out[k], array, array_names[k])
-	// }
+	fmt.println("\tNumber of single word sub-arrays:", len(lang1_dedup_single_words))
 
 	write_string_arrays_to_file("../generated_lang1_dedup.odin", lang1_dedup[:], "lang1_dedup")
 	write_string_arrays_to_file(
@@ -385,4 +390,30 @@ main :: proc() {
 		"lang1_raw_dedup",
 	)
 	write_string_arrays_to_file("../generated_trans1_dedup.odin", trans1_dedup[:], "trans1_dedup")
+
+	lang1_index := make(map[string][dynamic]int)
+	for array, idx in lang1_dedup {
+		for elem in array {
+			if !(elem in lang1_index) {
+				lang1_index[elem] = make([dynamic]int)
+			}
+			append(&lang1_index[elem], idx)
+		}
+	}
+	fmt.println("len(lang1_index) =", len(lang1_index))
+	fmt.println("cap(lang1_index) =", cap(lang1_index))
+
+	max_index: uintptr
+	capacity := uintptr(cap(lang1_index))
+	for key, &val in lang1_index {
+		keey := key
+		hash := utils.hash(&keey)
+		index := utils.map_hash_to_index(hash, capacity)
+		if index > max_index {
+			max_index = index
+		}
+	}
+	assert(max_index < capacity)
+
+	write_index_to_file("../generated_lang1_index.odin", lang1_index, "lang1_index")
 }
