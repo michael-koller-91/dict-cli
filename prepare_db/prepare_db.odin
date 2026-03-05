@@ -22,6 +22,7 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 	tic := time.tick_now()
 	os.write_string(file_out_handle, "// This is generated code!\n")
 	os.write_string(file_out_handle, "package main\n")
+	os.write_string(file_out_handle, "@(rodata)\n")
 	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v]string = {{", array_name, len(array)))
 	for elem in array {
 		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
@@ -52,6 +53,7 @@ write_string_arrays_to_file :: proc(
 	tic := time.tick_now()
 	os.write_string(file_out_handle, "// This is generated code!\n")
 	os.write_string(file_out_handle, "package main\n")
+	os.write_string(file_out_handle, "@(rodata)\n")
 	os.write_string(
 		file_out_handle,
 		fmt.aprintfln("%v: [%v][]string = {{", array_name, len(arrays)),
@@ -60,6 +62,40 @@ write_string_arrays_to_file :: proc(
 		os.write_string(file_out_handle, fmt.aprint("\t{"))
 		for elem, idx in array {
 			os.write_string(file_out_handle, fmt.aprintf("%q", elem))
+			if idx != len(array) - 1 {
+				os.write_string(file_out_handle, fmt.aprint(", "))
+			}
+		}
+		os.write_string(file_out_handle, fmt.aprint("},\n"))
+	}
+	os.write_string(file_out_handle, "}\n")
+	toc := time.tick_since(tic)
+
+	os.close(file_out_handle)
+	fmt.printfln(" (%v)", toc)
+}
+
+write_int_arrays_to_file :: proc(file_out_path: string, arrays: [][]int, array_name: string) {
+	if os.exists(file_out_path) {
+		os.remove(file_out_path)
+	}
+	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	if err == os.ERROR_NONE {
+		fmt.print("Writing file", file_out_path)
+	} else {
+		fmt.eprintln("ERROR: Could not create file", file_out_path, ":", err)
+		os.exit(1)
+	}
+
+	tic := time.tick_now()
+	os.write_string(file_out_handle, "// This is generated code!\n")
+	os.write_string(file_out_handle, "package main\n")
+	os.write_string(file_out_handle, "@(rodata)\n")
+	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v][]int = {{", array_name, len(arrays)))
+	for array in arrays {
+		os.write_string(file_out_handle, fmt.aprint("\t{"))
+		for elem, idx in array {
+			os.write_string(file_out_handle, fmt.aprintf("%v", elem))
 			if idx != len(array) - 1 {
 				os.write_string(file_out_handle, fmt.aprint(", "))
 			}
@@ -98,7 +134,6 @@ split_fields :: proc(str: string) -> []string {
 	}
 	return r[:]
 }
-
 
 find_pair_of_brackets :: proc(
 	s: string,
@@ -311,21 +346,9 @@ main :: proc() {
 	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
 
 	tic = time.tick_now()
-	lang1_dedup_1_word: [dynamic][]string
-	lang1_dedup_2_words: [dynamic][]string
-	lang1_dedup_3_words: [dynamic][]string
-	lang1_dedup_4_words: [dynamic][]string
-	lang1_dedup_mult_words: [dynamic][]string
-	lang1_raw_dedups_1_word: [dynamic][]string
-	lang1_raw_dedups_2_words: [dynamic][]string
-	lang1_raw_dedups_3_words: [dynamic][]string
-	lang1_raw_dedups_4_words: [dynamic][]string
-	lang1_raw_dedups_mult_words: [dynamic][]string
-	trans1_dedups_1_word: [dynamic][]string
-	trans1_dedups_2_words: [dynamic][]string
-	trans1_dedups_3_words: [dynamic][]string
-	trans1_dedups_4_words: [dynamic][]string
-	trans1_dedups_mult_words: [dynamic][]string
+	lang1_dedup: [dynamic][]string
+	lang1_raw_dedup: [dynamic][]string
+	trans1_dedup: [dynamic][]string
 	for key, val in lang1_aux_map {
 		if len(val) == 0 {
 			continue
@@ -334,53 +357,14 @@ main :: proc() {
 		if len(val[0]) == 1 {
 			continue
 		}
-		if len(val) == 1 {
-			append(&lang1_dedup_1_word, val)
-			append(&lang1_raw_dedups_1_word, lang1_raw_aux_map[key][:])
-			append(&trans1_dedups_1_word, trans1_aux_map[key][:])
-		} else if len(val) == 2 {
-			append(&lang1_dedup_2_words, val)
-			append(&lang1_raw_dedups_2_words, lang1_raw_aux_map[key][:])
-			append(&trans1_dedups_2_words, trans1_aux_map[key][:])
-		} else if len(val) == 3 {
-			append(&lang1_dedup_3_words, val)
-			append(&lang1_raw_dedups_3_words, lang1_raw_aux_map[key][:])
-			append(&trans1_dedups_3_words, trans1_aux_map[key][:])
-		} else if len(val) == 4 {
-			append(&lang1_dedup_4_words, val)
-			append(&lang1_raw_dedups_4_words, lang1_raw_aux_map[key][:])
-			append(&trans1_dedups_4_words, trans1_aux_map[key][:])
-		} else {
-			append(&lang1_dedup_mult_words, val)
-			append(&lang1_raw_dedups_mult_words, lang1_raw_aux_map[key][:])
-			append(&trans1_dedups_mult_words, trans1_aux_map[key][:])
-		}
+		append(&lang1_dedup, val)
+		append(&lang1_raw_dedup, lang1_raw_aux_map[key][:])
+		append(&trans1_dedup, trans1_aux_map[key][:])
 	}
-	assert(len(lang1_dedup_1_word) == len(lang1_raw_dedups_1_word))
-	assert(len(lang1_dedup_1_word) == len(trans1_dedups_1_word))
-	assert(len(lang1_dedup_2_words) == len(lang1_raw_dedups_2_words))
-	assert(len(lang1_dedup_2_words) == len(trans1_dedups_2_words))
-	assert(len(lang1_dedup_3_words) == len(lang1_raw_dedups_3_words))
-	assert(len(lang1_dedup_3_words) == len(trans1_dedups_3_words))
-	assert(len(lang1_dedup_4_words) == len(lang1_raw_dedups_4_words))
-	assert(len(lang1_dedup_4_words) == len(trans1_dedups_4_words))
-	assert(len(lang1_dedup_mult_words) == len(lang1_raw_dedups_mult_words))
-	assert(len(lang1_dedup_mult_words) == len(trans1_dedups_mult_words))
+	assert(len(lang1_dedup) == len(lang1_raw_dedup))
+	assert(len(lang1_dedup) == len(trans1_dedup))
 	toc = time.tick_since(tic)
-	fmt.printfln(
-		"Array lengths after handling empty or single-letter words: %v (%v)",
-		len(lang1_dedup_1_word) +
-		len(lang1_dedup_2_words) +
-		len(lang1_dedup_3_words) +
-		len(lang1_dedup_4_words) +
-		len(lang1_dedup_mult_words),
-		toc,
-	)
-	fmt.println("\t1 word     :", len(lang1_dedup_1_word))
-	fmt.println("\t2 words    :", len(lang1_dedup_2_words))
-	fmt.println("\t3 words    :", len(lang1_dedup_3_words))
-	fmt.println("\t4 words    :", len(lang1_dedup_4_words))
-	fmt.println("\tmult words :", len(lang1_dedup_mult_words))
+	fmt.println("\tArray lengths after deduplication:", len(lang1_dedup))
 
 	// arrays: [][]string = {lang1_raw[:], trans1_raw[:], category[:]}
 	// array_names: []string = {"lang1_raw", "trans1_raw", "category"}
@@ -394,79 +378,11 @@ main :: proc() {
 	// 	write_string_array_to_file(files_out[k], array, array_names[k])
 	// }
 
+	write_string_arrays_to_file("../generated_lang1_dedup.odin", lang1_dedup[:], "lang1_dedup")
 	write_string_arrays_to_file(
-		"../generated_lang1_dedup_1_word.odin",
-		lang1_dedup_1_word[:],
-		"lang1_dedup_1_word",
+		"../generated_lang1_raw_dedup.odin",
+		lang1_raw_dedup[:],
+		"lang1_raw_dedup",
 	)
-	write_string_arrays_to_file(
-		"../generated_lang1_dedup_2_words.odin",
-		lang1_dedup_2_words[:],
-		"lang1_dedup_2_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_dedup_3_words.odin",
-		lang1_dedup_3_words[:],
-		"lang1_dedup_3_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_dedup_4_words.odin",
-		lang1_dedup_4_words[:],
-		"lang1_dedup_4_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_dedup_mult_words.odin",
-		lang1_dedup_mult_words[:],
-		"lang1_dedup_mult_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedups_1_word.odin",
-		lang1_raw_dedups_1_word[:],
-		"lang1_raw_dedups_1_word",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedups_2_words.odin",
-		lang1_raw_dedups_2_words[:],
-		"lang1_raw_dedups_2_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedups_3_words.odin",
-		lang1_raw_dedups_3_words[:],
-		"lang1_raw_dedups_3_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedups_4_words.odin",
-		lang1_raw_dedups_4_words[:],
-		"lang1_raw_dedups_4_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedups_mult_words.odin",
-		lang1_raw_dedups_mult_words[:],
-		"lang1_raw_dedups_mult_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_trans1_dedups_1_word.odin",
-		trans1_dedups_1_word[:],
-		"trans1_dedups_1_word",
-	)
-	write_string_arrays_to_file(
-		"../generated_trans1_dedups_2_words.odin",
-		trans1_dedups_2_words[:],
-		"trans1_dedups_2_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_trans1_dedups_3_words.odin",
-		trans1_dedups_3_words[:],
-		"trans1_dedups_3_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_trans1_dedups_4_words.odin",
-		trans1_dedups_4_words[:],
-		"trans1_dedups_4_words",
-	)
-	write_string_arrays_to_file(
-		"../generated_trans1_dedups_mult_words.odin",
-		trans1_dedups_mult_words[:],
-		"trans1_dedups_mult_words",
-	)
+	write_string_arrays_to_file("../generated_trans1_dedup.odin", trans1_dedup[:], "trans1_dedup")
 }

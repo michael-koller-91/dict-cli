@@ -164,7 +164,7 @@ normalize_runes :: proc(str: string, normalizer: map[rune]string) -> string {
 	strings.builder_init(&b, 0, strings.rune_count(str), context.temp_allocator)
 	w := strings.to_writer(&b)
 
-	// convert XLM-encoded `&#946;` to `rune(946)`
+	// convert XML-encoded `&#946;` to `rune(946)`
 	decoded_str, err := entity.decode_xml(str, allocator = context.temp_allocator)
 	if err != entity.Error.None {
 		panic(
