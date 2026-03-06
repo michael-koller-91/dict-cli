@@ -4,6 +4,7 @@ import "./../utils"
 import "base:runtime"
 import "core:fmt"
 import "core:os"
+import "core:slice"
 import "core:strconv"
 import "core:strings"
 import "core:time"
@@ -186,12 +187,12 @@ remove_pairs_of_brackets :: proc(
 ) -> string {
 	output := s
 	match, begin, end := find_pair_of_brackets(s, openbr, closebr)
-	counter := 0
+	collisions_counter := 0
 	for match {
-		counter += 1
+		collisions_counter += 1
 		output, _ = strings.remove(output, output[begin:end + 1], 1, allocator)
 		match, begin, end = find_pair_of_brackets(output, openbr, closebr)
-		if counter > 100 {
+		if collisions_counter > 100 {
 			fmt.println(s)
 			panic("wtf")
 		}
@@ -354,12 +355,8 @@ main :: proc() {
 		append(&trans1_aux_map[key], lang2_raw[idx])
 	}
 	assert(len(lang1_aux_map) == len(trans1_aux_map))
-	toc = time.tick_since(tic)
-	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
 
-	tic = time.tick_now()
 	lang1_dedup: [dynamic][]string
-	lang1_dedup_single_words: [dynamic]string
 	lang1_raw_dedup: [dynamic][]string
 	trans1_dedup: [dynamic][]string
 	for key, val in lang1_aux_map {
@@ -370,18 +367,16 @@ main :: proc() {
 		if len(val[0]) == 1 {
 			continue
 		}
-		if len(val) == 1 {
-			append(&lang1_dedup_single_words, val[0])
-		}
 		append(&lang1_dedup, val)
 		append(&lang1_raw_dedup, lang1_raw_aux_map[key][:])
 		append(&trans1_dedup, trans1_aux_map[key][:])
 	}
 	assert(len(lang1_dedup) == len(lang1_raw_dedup))
 	assert(len(lang1_dedup) == len(trans1_dedup))
+
 	toc = time.tick_since(tic)
-	fmt.println("\tArray lengths after deduplication:", len(lang1_dedup))
-	fmt.println("\tNumber of single word sub-arrays:", len(lang1_dedup_single_words))
+	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
+	fmt.printfln("\tDedup array lengths: %v", len(lang1_dedup))
 
 	write_string_arrays_to_file("../generated_lang1_dedup.odin", lang1_dedup[:], "lang1_dedup")
 	write_string_arrays_to_file(
@@ -391,29 +386,65 @@ main :: proc() {
 	)
 	write_string_arrays_to_file("../generated_trans1_dedup.odin", trans1_dedup[:], "trans1_dedup")
 
-	lang1_index := make(map[string][dynamic]int)
+	tic = time.tick_now()
+	lang1_index: [dynamic][dynamic]int
+	hashes_arr := make([dynamic]uintptr)
+	hashes_map := make(map[uintptr]string)
+	unique_words := make(map[string]int)
+	collisions_counter := 0
+	unique_word_idx := -1
 	for array, idx in lang1_dedup {
-		for elem in array {
-			if !(elem in lang1_index) {
-				lang1_index[elem] = make([dynamic]int)
+		for word in array {
+			pword := word
+			hash := utils.hash(&pword)
+			if !(word in unique_words) {
+				unique_word_idx += 1
+				unique_words[word] = unique_word_idx
+
+				dyn_arr := make([dynamic]int)
+				append(&lang1_index, dyn_arr)
+
+				append(&hashes_arr, hash)
+
+				// We're only here if `word` is a not yet encountered word.
+				if hash in hashes_map { 	// So, if we have a new word but the hash is already known, we have a collision.
+					fmt.printfln(
+						"Collision: `%v` maps to hash `%v` but `%v` also maps there",
+						word,
+						hash,
+						hashes_map[hash],
+					)
+					collisions_counter += 1
+				} else {
+					hashes_map[hash] = word
+				}
 			}
-			append(&lang1_index[elem], idx)
+			index := unique_words[word]
+			append(&lang1_index[index], idx)
 		}
 	}
-	fmt.println("len(lang1_index) =", len(lang1_index))
-	fmt.println("cap(lang1_index) =", cap(lang1_index))
+	assert(len(lang1_index) == len(unique_words))
+	assert(len(lang1_index) == len(hashes_arr))
+	assert(len(lang1_index) == len(hashes_map))
+	assert(collisions_counter == 0, "There were hash collisions.")
 
-	max_index: uintptr
-	capacity := uintptr(cap(lang1_index))
-	for key, &val in lang1_index {
-		keey := key
-		hash := utils.hash(&keey)
-		index := utils.map_hash_to_index(hash, capacity)
-		if index > max_index {
-			max_index = index
-		}
-	}
-	assert(max_index < capacity)
+	hashes_arr_clone := slice.clone(hashes_arr[:])
+	sort_indices := slice.sort_with_indices(hashes_arr_clone)
 
-	write_index_to_file("../generated_lang1_index.odin", lang1_index, "lang1_index")
+	toc = time.tick_since(tic)
+	fmt.printfln("Number of unique words: %v (%v)", len(unique_words), toc)
+
+	utils.write_hash_arr_to_file(
+		"../generated_hash_arr.odin",
+		hashes_arr[:],
+		"hashes_arr",
+		sort_indices,
+	)
+
+	utils.write_index_arr_to_file(
+		"../generated_lang1_index.odin",
+		lang1_index[:],
+		"lang1_index",
+		sort_indices,
+	)
 }
