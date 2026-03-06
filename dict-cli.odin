@@ -8,80 +8,82 @@
 package main
 
 import "base:runtime"
-import "core:flags"
 import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:time"
 import "prepare_db"
 import "printer"
+import "utils"
 
 VERSION :: "0.0.1"
 
 NUM_ARRAYS :: 5
 
-lang1_dedup_words: [NUM_ARRAYS][][]string = {
-	lang1_dedup_1_word[:],
-	lang1_dedup_2_words[:],
-	lang1_dedup_3_words[:],
-	lang1_dedup_4_words[:],
-	lang1_dedup_mult_words[:],
-}
+print_hits :: proc(hits: [][dynamic]int) {
+	column_width :: 50
+	lines_max :: 5
 
-lang1_raw_dedups_words: [NUM_ARRAYS][][]string = {
-	lang1_raw_dedups_1_word[:],
-	lang1_raw_dedups_2_words[:],
-	lang1_raw_dedups_3_words[:],
-	lang1_raw_dedups_4_words[:],
-	lang1_raw_dedups_mult_words[:],
-}
+	tic := time.tick_now()
+	builder := strings.builder_make()
 
-trans1_dedups_words: [NUM_ARRAYS][][]string = {
-	trans1_dedups_1_word[:],
-	trans1_dedups_2_words[:],
-	trans1_dedups_3_words[:],
-	trans1_dedups_4_words[:],
-	trans1_dedups_mult_words[:],
-}
+	printed_topline := false
+	originals: []string
+	translations: []string
 
+	print_dots := false
+	first_print := true
+	for i in 0 ..< NUM_ARRAYS {
+		lines_printed := 0
 
-/*
-Match the `needles` with optional gaps against the `haystack`.
+		if len(hits[i]) > 0 {
+			if (!printed_topline) {
+				printer.print_topline(&builder, column_width)
+				printed_topline = true
+			} else {
+				if print_dots {
+					printer.print_dots(&builder, column_width)
+				} else {
+					printer.print_hline(&builder, column_width)
+				}
+			}
+			first_print = false
+		}
+		print_dots = false
 
-Inputs:
-- haystack: An array of strings to be matched against
-- needles: An array of strings to match against the `haystack`
+		l_max := lines_max
+		if i == 0 {
+			l_max = 100
+		}
 
-Returns:
-- score: The number of matches
-
-Example:
-
-	import "core:fmt"
-	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"foo", "baz"})) // 2 matches with one gap
-	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"bar", "baz"})) // 2 matches without a gap
-	fmt.println(match_score([]string{"foo", "bar", "baz"}, []string{"bar", "foo"})) // 1 match, order matters
-
-Output:
-
-	2
-	2
-	1
-
-*/
-match_score :: proc(haystack, needles: []string) -> (score: int) {
-	score = 0
-	i := 0
-	for needle in needles {
-		for j in i ..< len(haystack) {
-			if needle == haystack[j] {
-				score += 1
+		for hit in hits[i] {
+			originals = lang1_raw_dedup[hit]
+			translations = trans1_dedup[hit]
+			if len(originals) <= l_max - lines_printed {
+				printer.print(&builder, originals, translations, column_width)
+			} else {
+				printer.print(
+					&builder,
+					originals,
+					translations,
+					column_width,
+					l_max - lines_printed,
+				)
+				print_dots = true
 				break
 			}
+			lines_printed += len(originals)
 		}
-		i += 1
 	}
-	return
+	if print_dots {
+		printer.print_bottomline_dots(&builder, column_width)
+	} else {
+		printer.print_bottomline(&builder, column_width)
+	}
+	fmt.println(strings.to_string(builder))
+
+	toc := time.tick_since(tic)
+	fmt.printfln("Printing took %v", toc)
 }
 
 main :: proc() {
@@ -154,12 +156,41 @@ main :: proc() {
 	fmt.print("Searching...")
 	tic := time.tick_now()
 
+	hash_first_word := int(utils.hash(&phrases[0]))
+
+	hash_index := -1
+	left := 0
+	right := len(hashes_arr)
+	for left < right {
+		mid := (left + right) / 2
+		hash := hashes_arr[mid]
+		if hash == hash_first_word {
+			hash_index = mid
+			break
+		} else if hash_first_word < hash {
+			right = mid
+		} else {
+			left = mid + 1
+		}
+	}
+
+	if hash_index == -1 {
+		toc := time.tick_since(tic)
+		fmt.printfln("done. (%v)", toc)
+		os.exit(0)
+	}
+
+	indices := lang1_index[hash_index]
+
 	hits: [NUM_ARRAYS][dynamic]int
-	for i in 0 ..< NUM_ARRAYS {
-		for words, idx in lang1_dedup_words[i] {
-			score := match_score(words, phrases)
-			if score == num_phrases {
-				append(&hits[i], idx)
+	for idx in indices {
+		words := lang1_dedup[idx]
+		score := utils.match_score(words, phrases)
+		if score == num_phrases {
+			if (1 <= len(words)) & (len(words) <= NUM_ARRAYS - 1) {
+				append(&hits[len(words) - 1], idx)
+			} else {
+				append(&hits[NUM_ARRAYS - 1], idx)
 			}
 		}
 	}
@@ -171,9 +202,6 @@ main :: proc() {
 
 	toc := time.tick_since(tic)
 	fmt.printfln("done. %v hits (%v)", num_hits, toc)
-	if num_hits == 0 {
-		os.exit(0)
-	}
 
 	for i in 0 ..< NUM_ARRAYS {
 		num_hits += len(hits[i])
@@ -181,67 +209,6 @@ main :: proc() {
 	}
 	fmt.println()
 
-	column_width :: 50
-	lines_max :: 5
+	print_hits(hits[:])
 
-	tic = time.tick_now()
-	builder := strings.builder_make()
-
-	printed_topline := false
-	originals: []string
-	translations: []string
-
-	print_dots := false
-	first_print := true
-	for i in 0 ..< NUM_ARRAYS {
-		lines_printed := 0
-
-		if len(hits[i]) > 0 {
-			if (!printed_topline) {
-				printer.print_topline(&builder, column_width)
-				printed_topline = true
-			} else {
-				if print_dots {
-					printer.print_dots(&builder, column_width)
-				} else {
-					printer.print_hline(&builder, column_width)
-				}
-			}
-			first_print = false
-		}
-		print_dots = false
-
-		l_max := lines_max
-		if i == 0 {
-			l_max = 100
-		}
-
-		for hit in hits[i] {
-			originals = lang1_raw_dedups_words[i][hit]
-			translations = trans1_dedups_words[i][hit]
-			if len(originals) <= l_max - lines_printed {
-				printer.print(&builder, originals, translations, column_width)
-			} else {
-				printer.print(
-					&builder,
-					originals,
-					translations,
-					column_width,
-					l_max - lines_printed,
-				)
-				print_dots = true
-				break
-			}
-			lines_printed += len(originals)
-		}
-	}
-	if print_dots {
-		printer.print_bottomline_dots(&builder, column_width)
-	} else {
-		printer.print_bottomline(&builder, column_width)
-	}
-	fmt.println(strings.to_string(builder))
-
-	toc = time.tick_since(tic)
-	fmt.printfln("Printing took %v", toc)
 }

@@ -64,7 +64,11 @@ write_hash_arr_to_file :: proc(
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	file_out_handle, err := os.open(
+		file_out_path,
+		os.O_CREATE | os.O_WRONLY,
+		os.Permissions_Read_All,
+	)
 	if err == os.ERROR_NONE {
 		fmt.print("Writing file", file_out_path)
 	} else {
@@ -77,11 +81,10 @@ write_hash_arr_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	strings.write_string(&builder, "@(rodata)\n")
+	//strings.write_string(&builder, "@(rodata)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v]int = {{", array_name, len(hashes_arr)))
-	for idx in 0 ..< len(hashes_arr) {
-		index := sort_indices[idx]
-		strings.write_string(&builder, fmt.aprintf("\t%v = %v,\n", index, hashes_arr[index]))
+	for idx in sort_indices {
+		strings.write_string(&builder, fmt.aprintf("\t%v,\n", hashes_arr[idx]))
 	}
 	strings.write_string(&builder, "}\n")
 	os.write_string(file_out_handle, strings.to_string(builder))
@@ -100,7 +103,11 @@ write_index_arr_to_file :: proc(
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	file_out_handle, err := os.open(
+		file_out_path,
+		os.O_CREATE | os.O_WRONLY,
+		os.Permissions_Read_All,
+	)
 	if err == os.ERROR_NONE {
 		fmt.print("Writing file", file_out_path)
 	} else {
@@ -113,14 +120,13 @@ write_index_arr_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	strings.write_string(&builder, "@(rodata)\n")
+	//strings.write_string(&builder, "@(rodata)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]int = {{", array_name, len(index_arr)))
-	for idx in 0 ..< len(index_arr) {
-		index := sort_indices[idx]
-		strings.write_string(&builder, fmt.aprintf("\t%v = {{", index))
-		for elem, i in index_arr[index] {
+	for idx in sort_indices {
+		strings.write_string(&builder, fmt.aprint("\t{"))
+		for elem, i in index_arr[idx] {
 			strings.write_string(&builder, fmt.aprintf("%v", elem))
-			if i != len(index_arr[index]) - 1 {
+			if i != len(index_arr[idx]) - 1 {
 				strings.write_string(&builder, fmt.aprint(", "))
 			}
 		}

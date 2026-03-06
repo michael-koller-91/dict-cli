@@ -13,7 +13,11 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	file_out_handle, err := os.open(
+		file_out_path,
+		os.O_CREATE | os.O_WRONLY,
+		os.Permissions_Read_All,
+	)
 	if err == os.ERROR_NONE {
 		fmt.print("Writing file", file_out_path)
 	} else {
@@ -24,7 +28,7 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 	tic := time.tick_now()
 	os.write_string(file_out_handle, "// This is generated code!\n")
 	os.write_string(file_out_handle, "package main\n")
-	os.write_string(file_out_handle, "@(rodata)\n")
+	//os.write_string(file_out_handle, "@(rodata)\n")
 	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v]string = {{", array_name, len(array)))
 	for elem in array {
 		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
@@ -44,7 +48,11 @@ write_string_arrays_to_file :: proc(
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	file_out_handle, err := os.open(
+		file_out_path,
+		os.O_CREATE | os.O_WRONLY,
+		os.Permissions_Read_All,
+	)
 	if err == os.ERROR_NONE {
 		fmt.print("Writing file", file_out_path)
 	} else {
@@ -57,7 +65,7 @@ write_string_arrays_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	strings.write_string(&builder, "@(rodata)\n")
+	//strings.write_string(&builder, "@(rodata)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]string = {{", array_name, len(arrays)))
 	for array in arrays {
 		strings.write_string(&builder, fmt.aprint("\t{"))
@@ -85,7 +93,11 @@ write_index_to_file :: proc(
 	if os.exists(file_out_path) {
 		os.remove(file_out_path)
 	}
-	file_out_handle, err := os.open(file_out_path, os.O_CREATE | os.O_WRONLY, 444)
+	file_out_handle, err := os.open(
+		file_out_path,
+		os.O_CREATE | os.O_WRONLY,
+		os.Permissions_Read_All,
+	)
 	if err == os.ERROR_NONE {
 		fmt.print("Writing file", file_out_path)
 	} else {
@@ -98,7 +110,7 @@ write_index_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	strings.write_string(&builder, "@(rodata)\n")
+	//strings.write_string(&builder, "@(rodata)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]int = {{", array_name, cap(map_)))
 	capacity := uintptr(cap(map_))
 	for key, val in map_ {
@@ -257,7 +269,7 @@ main :: proc() {
 	tic := time.tick_now()
 	file_read, file_read_ok := os.read_entire_file(path_dict_txt, context.allocator)
 	defer delete(file_read, context.allocator)
-	if !file_read_ok {
+	if file_read_ok != os.ERROR_NONE {
 		fmt.eprintfln("ERROR: Could not open file %v.", path_dict_txt)
 	}
 
