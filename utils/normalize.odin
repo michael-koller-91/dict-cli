@@ -1,4 +1,4 @@
-package prepare_db
+package utils
 
 import "core:encoding/entity"
 import "core:fmt"
@@ -6,8 +6,13 @@ import "core:io"
 import "core:strings"
 import "core:unicode/utf8"
 
-get_normalizer :: proc() -> map[rune]string {
-	normalizer := make(map[rune]string)
+/*
+Construct the map that is used to normalize runes.
+
+*Allocates Using Provided Allocator*
+*/
+get_normalizer :: proc(allocator := context.allocator) -> map[rune]string {
+	normalizer := make(map[rune]string, allocator)
 
 	// '0' - '9'
 	for i in 48 ..= 57 {
@@ -159,17 +164,24 @@ get_normalizer :: proc() -> map[rune]string {
 	return normalizer
 }
 
-normalize_runes :: proc(str: string, normalizer: map[rune]string) -> string {
+/*
+Replace all runes in the provided string.
+
+*Allocates Using Provided Allocator*
+*/
+normalize_runes :: proc(
+	s: string,
+	normalizer: map[rune]string,
+	allocator := context.allocator,
+) -> string {
 	b: strings.Builder
-	strings.builder_init(&b, 0, strings.rune_count(str), context.temp_allocator)
+	strings.builder_init(&b, 0, strings.rune_count(s), allocator)
 	w := strings.to_writer(&b)
 
 	// convert XML-encoded `&#946;` to `rune(946)`
-	decoded_str, err := entity.decode_xml(str, allocator = context.temp_allocator)
+	decoded_str, err := entity.decode_xml(s, allocator = allocator)
 	if err != entity.Error.None {
-		panic(
-			fmt.aprint("decode_xml couldn't handle the string %q with error message %v", str, err),
-		)
+		panic(fmt.aprint("decode_xml couldn't handle the string %q with error message %v", s, err))
 	}
 
 	for r, idx in decoded_str {

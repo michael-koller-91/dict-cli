@@ -3,6 +3,7 @@
 // - dict.cc displays it like that
 // TODO: write unit tests (e.g., for match_score)
 // TODO: add a command line flag to specifically print all n-word hits
+// TODO: put foreign import into a generated file and import that one here
 
 package main
 
@@ -20,7 +21,6 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:time"
-import "prepare_db"
 import "printer"
 import "utils"
 
@@ -39,11 +39,11 @@ main :: proc() {
 		os.exit(0)
 	}
 
-	normalizer := prepare_db.get_normalizer()
+	normalizer := utils.get_normalizer()
 	phrases_: [dynamic]string
 	for word, idx in args {
 		lower := strings.to_lower(word)
-		normalized := prepare_db.normalize_runes(lower, normalizer)
+		normalized := utils.normalize_runes(lower, normalizer)
 		append(&phrases_, strings.clone(normalized))
 	}
 	phrases := phrases_[:]
@@ -55,6 +55,7 @@ main :: proc() {
 
 	hash_first_word := int(utils.hash(&phrases[0]))
 
+	// bisection search
 	hash_index := -1
 	left := 0
 	right := len(hashes_arr)
@@ -73,7 +74,7 @@ main :: proc() {
 
 	if hash_index == -1 {
 		toc := time.tick_since(tic)
-		fmt.printfln("done. (%v)", toc)
+		fmt.printfln("done (no hit). (%v)", toc)
 		os.exit(0)
 	}
 
