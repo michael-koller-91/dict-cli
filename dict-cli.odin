@@ -1,11 +1,19 @@
 // TODO: add a command line flag to print all hits
-// TODO: does it make sense to have all single-words as key in a map for faster matching?
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
 // TODO: write unit tests (e.g., for match_score)
 // TODO: add a command line flag to specifically print all n-word hits
 
 package main
+
+foreign import gen "./prepare_db/generated/generated.a"
+foreign gen {
+	hashes_arr: [564026]int
+	lang1_dedup: [815029][]string
+	lang1_index: [564026][]int
+	lang1_raw_dedup: [815029][]string
+	trans1_dedup: [815029][]string
+}
 
 import "base:runtime"
 import "core:fmt"
@@ -20,118 +28,7 @@ VERSION :: "0.0.1"
 
 NUM_ARRAYS :: 5
 
-print_hits :: proc(hits: [][dynamic]int) {
-	column_width :: 50
-	lines_max :: 5
-
-	tic := time.tick_now()
-	builder := strings.builder_make()
-
-	printed_topline := false
-	originals: []string
-	translations: []string
-
-	print_dots := false
-	first_print := true
-	for i in 0 ..< NUM_ARRAYS {
-		lines_printed := 0
-
-		if len(hits[i]) > 0 {
-			if (!printed_topline) {
-				printer.print_topline(&builder, column_width)
-				printed_topline = true
-			} else {
-				if print_dots {
-					printer.print_dots(&builder, column_width)
-				} else {
-					printer.print_hline(&builder, column_width)
-				}
-			}
-			first_print = false
-		}
-		print_dots = false
-
-		l_max := lines_max
-		if i == 0 {
-			l_max = 100
-		}
-
-		for hit in hits[i] {
-			originals = lang1_raw_dedup[hit]
-			translations = trans1_dedup[hit]
-			if len(originals) <= l_max - lines_printed {
-				printer.print(&builder, originals, translations, column_width)
-			} else {
-				printer.print(
-					&builder,
-					originals,
-					translations,
-					column_width,
-					l_max - lines_printed,
-				)
-				print_dots = true
-				break
-			}
-			lines_printed += len(originals)
-		}
-	}
-	if print_dots {
-		printer.print_bottomline_dots(&builder, column_width)
-	} else {
-		printer.print_bottomline(&builder, column_width)
-	}
-	fmt.println(strings.to_string(builder))
-
-	toc := time.tick_since(tic)
-	fmt.printfln("Printing took %v", toc)
-}
-
 main :: proc() {
-	/*
-	Args :: struct {
-		phrase:  string `args:"pos=0,phrase" usage:"The phrase to translate."`,
-		version: bool `args:"name=version" usage:"Print the version number and exit."`,
-		v:       bool `args:"name=v,hidden" usage:"Print the version number and exit."`,
-	}
-	args: Args
-	parse_err := flags.parse(&args, os.args[1:])
-	switch e in parse_err {
-	case flags.Validation_Error:
-		flags.write_usage(os.stream_from_handle(os.stdout), Args, os.args[0])
-		write_examples()
-		fmt.eprintfln("\n[%T] %s", e, e.message)
-		os.exit(1)
-	case flags.Parse_Error:
-		fmt.eprintfln("[%T.%v] %s", e, e.reason, e.message)
-		os.exit(1)
-	case flags.Open_File_Error:
-		fmt.eprintfln(
-			"[%T#%i] Unable to open file with perms 0o%o in mode 0x%x: %s",
-			e,
-			e.errno,
-			e.perms,
-			e.mode,
-			e.filename,
-		)
-		os.exit(1)
-	case flags.Help_Request:
-		flags.write_usage(os.stream_from_handle(os.stdout), Args, os.args[0])
-		write_examples()
-		os.exit(0)
-	}
-	if args.version | args.v {
-		fmt.printfln("dict %v", VERSION)
-		os.exit(0)
-	}
-	if args.phrase == "" {
-		flags.write_usage(os.stream_from_handle(os.stdout), Args, os.args[0])
-		os.exit(0)
-	}
-	phrase := strings.to_lower(args.phrase)
-	normalizer := prepare_db.get_normalizer()
-	phrase_normalized := prepare_db.normalize_runes(phrase, normalizer)
-	*/
-
 	program, args := os.args[0], os.args[1:]
 	if len(args) == 0 {
 		fmt.println("Usage: dict <word(s)>")
@@ -209,6 +106,67 @@ main :: proc() {
 	}
 	fmt.println()
 
-	print_hits(hits[:])
+	column_width :: 50
+	lines_max :: 5
 
+	tic = time.tick_now()
+	builder := strings.builder_make()
+
+	printed_topline := false
+	originals: []string
+	translations: []string
+
+	print_dots := false
+	first_print := true
+	for i in 0 ..< NUM_ARRAYS {
+		lines_printed := 0
+
+		if len(hits[i]) > 0 {
+			if (!printed_topline) {
+				printer.print_topline(&builder, column_width)
+				printed_topline = true
+			} else {
+				if print_dots {
+					printer.print_dots(&builder, column_width)
+				} else {
+					printer.print_hline(&builder, column_width)
+				}
+			}
+			first_print = false
+		}
+		print_dots = false
+
+		l_max := lines_max
+		if i == 0 {
+			l_max = 100
+		}
+
+		for hit in hits[i] {
+			originals = lang1_raw_dedup[hit]
+			translations = trans1_dedup[hit]
+			if len(originals) <= l_max - lines_printed {
+				printer.print(&builder, originals, translations, column_width)
+			} else {
+				printer.print(
+					&builder,
+					originals,
+					translations,
+					column_width,
+					l_max - lines_printed,
+				)
+				print_dots = true
+				break
+			}
+			lines_printed += len(originals)
+		}
+	}
+	if print_dots {
+		printer.print_bottomline_dots(&builder, column_width)
+	} else {
+		printer.print_bottomline(&builder, column_width)
+	}
+	fmt.println(strings.to_string(builder))
+
+	toc = time.tick_since(tic)
+	fmt.printfln("Printing took %v", toc)
 }

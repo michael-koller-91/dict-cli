@@ -81,7 +81,7 @@ write_hash_arr_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	//strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, "@(export = true)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v]int = {{", array_name, len(hashes_arr)))
 	for idx in sort_indices {
 		strings.write_string(&builder, fmt.aprintf("\t%v,\n", hashes_arr[idx]))
@@ -120,7 +120,7 @@ write_index_arr_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	//strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, "@(export = true)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]int = {{", array_name, len(index_arr)))
 	for idx in sort_indices {
 		strings.write_string(&builder, fmt.aprint("\t{"))

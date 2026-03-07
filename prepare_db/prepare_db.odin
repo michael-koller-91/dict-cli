@@ -28,7 +28,7 @@ write_string_array_to_file :: proc(file_out_path: string, array: []string, array
 	tic := time.tick_now()
 	os.write_string(file_out_handle, "// This is generated code!\n")
 	os.write_string(file_out_handle, "package main\n")
-	//os.write_string(file_out_handle, "@(rodata)\n")
+	os.write_string(file_out_handle, "@(export = true)\n")
 	os.write_string(file_out_handle, fmt.aprintfln("%v: [%v]string = {{", array_name, len(array)))
 	for elem in array {
 		os.write_string(file_out_handle, fmt.aprintfln("\t%q,", elem))
@@ -65,7 +65,7 @@ write_string_arrays_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	//strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, "@(export = true)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]string = {{", array_name, len(arrays)))
 	for array in arrays {
 		strings.write_string(&builder, fmt.aprint("\t{"))
@@ -110,7 +110,7 @@ write_index_to_file :: proc(
 	tic := time.tick_now()
 	strings.write_string(&builder, "// This is generated code!\n")
 	strings.write_string(&builder, "package main\n")
-	//strings.write_string(&builder, "@(rodata)\n")
+	strings.write_string(&builder, "@(export = true)\n")
 	strings.write_string(&builder, fmt.aprintfln("%v: [%v][]int = {{", array_name, cap(map_)))
 	capacity := uintptr(cap(map_))
 	for key, val in map_ {
@@ -273,6 +273,18 @@ main :: proc() {
 		fmt.eprintfln("ERROR: Could not open file %v.", path_dict_txt)
 	}
 
+	dir := "generated"
+	if os.exists(dir) {
+		remove_ok := os.remove_all(dir)
+		if remove_ok != os.ERROR_NONE {
+			fmt.eprintfln("ERROR: Could not remove directory %v.", dir)
+		}
+	}
+	mkdir_ok := os.mkdir(dir)
+	if mkdir_ok != os.ERROR_NONE {
+		fmt.eprintfln("ERROR: Could not make directory %v.", dir)
+	}
+
 	lang1_raw: [dynamic]string
 	lang2_raw: [dynamic]string
 	category: [dynamic]string
@@ -390,13 +402,21 @@ main :: proc() {
 	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
 	fmt.printfln("\tDedup array lengths: %v", len(lang1_dedup))
 
-	write_string_arrays_to_file("../generated_lang1_dedup.odin", lang1_dedup[:], "lang1_dedup")
 	write_string_arrays_to_file(
-		"../generated_lang1_raw_dedup.odin",
+		fmt.aprintf("%v/generated_lang1_dedup.odin", dir),
+		lang1_dedup[:],
+		"lang1_dedup",
+	)
+	write_string_arrays_to_file(
+		fmt.aprintf("%v/generated_lang1_raw_dedup.odin", dir),
 		lang1_raw_dedup[:],
 		"lang1_raw_dedup",
 	)
-	write_string_arrays_to_file("../generated_trans1_dedup.odin", trans1_dedup[:], "trans1_dedup")
+	write_string_arrays_to_file(
+		fmt.aprintf("%v/generated_trans1_dedup.odin", dir),
+		trans1_dedup[:],
+		"trans1_dedup",
+	)
 
 	tic = time.tick_now()
 	lang1_index: [dynamic][dynamic]int
@@ -447,14 +467,14 @@ main :: proc() {
 	fmt.printfln("Number of unique words: %v (%v)", len(unique_words), toc)
 
 	utils.write_hash_arr_to_file(
-		"../generated_hash_arr.odin",
+		fmt.aprintf("%v/generated_hash_arr.odin", dir),
 		hashes_arr[:],
 		"hashes_arr",
 		sort_indices,
 	)
 
 	utils.write_index_arr_to_file(
-		"../generated_lang1_index.odin",
+		fmt.aprintf("%v/generated_lang1_index.odin", dir),
 		lang1_index[:],
 		"lang1_index",
 		sort_indices,
