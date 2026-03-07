@@ -44,6 +44,14 @@ main :: proc() {
 
 	path_dict_txt := "dict-de-en.txt"
 
+	varname: string
+
+	builder := strings.builder_make(context.allocator)
+	strings.write_string(&builder, "// This is generated code!\n")
+	strings.write_string(&builder, "package main\n")
+	strings.write_string(&builder, "foreign import gen \"./prepare_db/generated/generated.a\"\n")
+	strings.write_string(&builder, "foreign gen {\n")
+
 	tic := time.tick_now()
 	file_read, file_read_ok := os.read_entire_file(path_dict_txt, context.allocator)
 	defer delete(file_read, context.allocator)
@@ -180,21 +188,32 @@ main :: proc() {
 	fmt.printfln("Array lengths after handling duplicates: %v (%v)", len(lang1_aux_map), toc)
 	fmt.printfln("\tDedup array lengths: %v", len(lang1_dedup))
 
+	varname = "lang1_dedup"
 	utils.write_string_arrays_to_file(
 		fmt.aprintf("%v/generated_lang1_dedup.odin", dir),
 		lang1_dedup[:],
-		"lang1_dedup",
+		varname,
 	)
+	strings.write_string(&builder, fmt.aprintf("\t%v: [%v][]string\n", varname, len(lang1_dedup)))
+
+	varname = "lang1_raw_dedup"
 	utils.write_string_arrays_to_file(
 		fmt.aprintf("%v/generated_lang1_raw_dedup.odin", dir),
 		lang1_raw_dedup[:],
-		"lang1_raw_dedup",
+		varname,
 	)
+	strings.write_string(
+		&builder,
+		fmt.aprintf("\t%v: [%v][]string\n", varname, len(lang1_raw_dedup)),
+	)
+
+	varname = "trans1_dedup"
 	utils.write_string_arrays_to_file(
 		fmt.aprintf("%v/generated_trans1_dedup.odin", dir),
 		trans1_dedup[:],
-		"trans1_dedup",
+		varname,
 	)
+	strings.write_string(&builder, fmt.aprintf("\t%v: [%v][]string\n", varname, len(trans1_dedup)))
 
 	tic = time.tick_now()
 	lang1_index: [dynamic][dynamic]int
@@ -244,17 +263,28 @@ main :: proc() {
 	toc = time.tick_since(tic)
 	fmt.printfln("Number of unique words: %v (%v)", len(unique_words), toc)
 
+	varname = "hashes_arr"
 	utils.write_hash_arr_to_file(
 		fmt.aprintf("%v/generated_hash_arr.odin", dir),
 		hashes_arr[:],
-		"hashes_arr",
+		varname,
 		sort_indices,
 	)
+	strings.write_string(&builder, fmt.aprintf("\t%v: [%v]int\n", varname, len(hashes_arr)))
 
+	varname = "lang1_index"
 	utils.write_index_arr_to_file(
 		fmt.aprintf("%v/generated_lang1_index.odin", dir),
 		lang1_index[:],
-		"lang1_index",
+		varname,
 		sort_indices,
 	)
+	strings.write_string(&builder, fmt.aprintf("\t%v: [%v][]int\n", varname, len(lang1_index)))
+
+	file_out_path := "../generated_import.odin"
+	file_out_handle := utils.open_file(file_out_path)
+	strings.write_string(&builder, "}\n")
+	os.write_string(file_out_handle, strings.to_string(builder))
+	os.close(file_out_handle)
+	fmt.printfln("Created %v", file_out_path)
 }

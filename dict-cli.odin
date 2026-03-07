@@ -3,18 +3,8 @@
 // - dict.cc displays it like that
 // TODO: write unit tests (e.g., for match_score)
 // TODO: add a command line flag to specifically print all n-word hits
-// TODO: put foreign import into a generated file and import that one here
 
 package main
-
-foreign import gen "./prepare_db/generated/generated.a"
-foreign gen {
-	hashes_arr: [564026]int
-	lang1_dedup: [815029][]string
-	lang1_index: [564026][]int
-	lang1_raw_dedup: [815029][]string
-	trans1_dedup: [815029][]string
-}
 
 import "base:runtime"
 import "core:fmt"
@@ -74,7 +64,7 @@ main :: proc() {
 
 	if hash_index == -1 {
 		toc := time.tick_since(tic)
-		fmt.printfln("done (no hit). (%v)", toc)
+		fmt.printfln("done. 0 hits (%v)", toc)
 		os.exit(0)
 	}
 
