@@ -2,12 +2,15 @@
 // TODO: should "etw. denken" be considered a one-word-hit for "denken"?
 // - dict.cc displays it like that
 // TODO: write unit tests (e.g., for match_score)
+// TODO: convert user's input "etwas" to "etw" - unless "etwas" is the only input
 // TODO: add a command line flag to specifically print all n-word hits
+// TODO: implement get_terminal_size for other OS
 
 package main
 
 import "base:runtime"
 import "core:fmt"
+import "core:math"
 import "core:os"
 import "core:strings"
 import "core:time"
@@ -28,6 +31,8 @@ main :: proc() {
 		fmt.printfln("dict %v", VERSION)
 		os.exit(0)
 	}
+
+	term_h, term_w := utils.get_terminal_size()
 
 	normalizer := utils.get_normalizer()
 	phrases_: [dynamic]string
@@ -68,8 +73,9 @@ main :: proc() {
 		os.exit(0)
 	}
 
-	indices := lang1_index[hash_index]
+	/* find translations */
 
+	indices := lang1_index[hash_index]
 	hits: [NUM_ARRAYS][dynamic]int
 	for idx in indices {
 		words := lang1_dedup[idx]
@@ -93,14 +99,19 @@ main :: proc() {
 
 	for i in 0 ..< NUM_ARRAYS {
 		num_hits += len(hits[i])
-		fmt.printfln("len(hits[%v]) = %v", i, len(hits[i]))
+		fmt.printf("#%v: %v", i, len(hits[i]))
+		if i + 1 != NUM_ARRAYS {
+			fmt.print("  |  ")
+		}
 	}
 	fmt.println()
+	fmt.println()
 
-	column_width :: 50
+	/* print translations */
+
+	column_width := int(math.ceil(0.48 * f32(term_w)))
 	lines_max :: 5
 
-	tic = time.tick_now()
 	builder := strings.builder_make()
 
 	printed_topline := false
@@ -157,7 +168,4 @@ main :: proc() {
 		printer.print_bottomline(&builder, column_width)
 	}
 	fmt.println(strings.to_string(builder))
-
-	toc = time.tick_since(tic)
-	fmt.printfln("Printing took %v", toc)
 }

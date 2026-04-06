@@ -1,9 +1,11 @@
 package utils
 
 import "base:runtime"
+import "core:c"
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import "core:sys/linux"
 import "core:time"
 
 SEED :: 123456789
@@ -54,6 +56,26 @@ find_pair_of_brackets :: proc(
 			}
 		}
 	}
+
+	return
+}
+
+/*
+Syscall to get the terminal height and width.
+*/
+get_terminal_size :: proc() -> (height, width: uint) {
+	winsize :: struct {
+		ws_row, ws_col:       c.ushort,
+		ws_xpixel, ws_ypixel: c.ushort,
+	}
+
+	w: winsize
+	if linux.ioctl(linux.STDOUT_FILENO, linux.TIOCGWINSZ, cast(uintptr)&w) != 0 {
+		panic("Failed to get terminal size")
+	}
+
+	height = uint(w.ws_row)
+	width = uint(w.ws_col)
 
 	return
 }
