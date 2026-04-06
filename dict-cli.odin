@@ -95,6 +95,10 @@ main :: proc() {
 	}
 
 	toc := time.tick_since(tic)
+	if num_hits == 0 {
+		fmt.printfln("done. 0 hits (%v)", toc)
+		os.exit(0)
+	}
 	fmt.printfln("done. %v hits (%v)", num_hits, toc)
 
 	for i in 0 ..< NUM_ARRAYS {
