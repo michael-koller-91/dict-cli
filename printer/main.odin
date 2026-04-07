@@ -1,44 +1,7 @@
 package printer
 
 import "core:fmt"
-import "core:io"
 import "core:strings"
-
-str1: []string = {
-	"trüben",
-	"trüben",
-	"trüben",
-	"trüben",
-	"trüben [Geist, Stimmung etc.",
-	"sich trübe",
-	"sich trübe",
-	"sich trübe",
-	"sich [Akk.] trüben [Blick",
-	"etw. [Akk.] trübe",
-	"etw. [Akk.] trüben [auch fig.: jds. Freude etc.",
-	"etw. [Akk.] trüben [Glück, Stimmung",
-	"mit trüben Auge",
-	"jds. Hoffnungen trüben",
-	"den Blick trübe",
-}
-
-str2: []string = {
-	"to dim",
-	"to dull [consciousness, vision]",
-	"to roil",
-	"to tarnish",
-	"to obfuscate",
-	"to darken [atmosphere, mood]",
-	"to dull [eyes]",
-	"to mist",
-	"to grow dim [vision]",
-	"to opacify sth.",
-	"to cloud sth. [also fig.: sb.'s joy etc.]",
-	"to mar sth. [happiness, mood]",
-	"blearily",
-	"to darken sb.'s hopes",
-	"to blur the vision",
-}
 
 to_width :: proc(str: string, width: int) -> []string {
 	s := make([]string, 1)
@@ -157,6 +120,42 @@ print :: proc(
 }
 
 main :: proc() {
+	str1: []string = {
+		"trüben",
+		"trüben",
+		"trüben",
+		"trüben",
+		"trüben [Geist, Stimmung etc.",
+		"sich trübe",
+		"sich trübe",
+		"sich trübe",
+		"sich [Akk.] trüben [Blick",
+		"etw. [Akk.] trübe",
+		"etw. [Akk.] trüben [auch fig.: jds. Freude etc.",
+		"etw. [Akk.] trüben [Glück, Stimmung",
+		"mit trüben Auge",
+		"jds. Hoffnungen trüben",
+		"den Blick trübe",
+	}
+
+	str2: []string = {
+		"to dim",
+		"to dull [consciousness, vision]",
+		"to roil",
+		"to tarnish",
+		"to obfuscate",
+		"to darken [atmosphere, mood]",
+		"to dull [eyes]",
+		"to mist",
+		"to grow dim [vision]",
+		"to opacify sth.",
+		"to cloud sth. [also fig.: sb.'s joy etc.]",
+		"to mar sth. [happiness, mood]",
+		"blearily",
+		"to darken sb.'s hopes",
+		"to blur the vision",
+	}
+
 	column_width := 20
 	builder := strings.builder_make()
 	print_topline(&builder, column_width)

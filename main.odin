@@ -4,7 +4,6 @@
 // TODO: write unit tests (e.g., for match_score)
 // TODO: convert user's input "etwas" to "etw" - unless "etwas" is the only input
 // TODO: add a command line flag to specifically print all n-word hits
-// TODO: implement get_terminal_size for other OS
 
 package main
 
