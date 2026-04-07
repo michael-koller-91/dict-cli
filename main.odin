@@ -112,8 +112,8 @@ main :: proc() {
 
 	/* print translations */
 
-	column_width := int(math.ceil(0.48 * f32(term_w)))
-	lines_max :: 5
+	column_width := int(math.floor((f32(term_w) - 5.0) / 2.0))
+	LINES_MAX :: 5
 
 	builder := strings.builder_make()
 
@@ -141,7 +141,7 @@ main :: proc() {
 		}
 		print_dots = false
 
-		l_max := lines_max
+		l_max := LINES_MAX
 		if i == 0 {
 			l_max = 100
 		}
